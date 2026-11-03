@@ -153,7 +153,7 @@ export function generateInvoices(vendors: GenVendor[], opt: GenOptions) {
     return po;
   };
 
-  const sortedDates = Array.from({ length: n }, () => new Date(opt.start.getTime() + Math.floor(r.next() * span)))
+  const sortedDates = Array.from({ length: nBase }, () => new Date(opt.start.getTime() + Math.floor(r.next() * span)))
     .sort((a, b) => a.getTime() - b.getTime());
   let dateIdx = 0;
 

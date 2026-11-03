@@ -48,11 +48,16 @@ describe("replay testing", () => {
   it("uploads the seed CSV, matching vendors to the vendor master", async () => {
     const res = await call(uploadDataset, { method: "POST", user: "controller", rawBody: csvForm(csv) });
     expect(res.status).toBe(201);
-    expect(res.data).toMatchObject({ imported: 1000, skipped: 0, mix: { approve: 743, reject: 86, escalate: 171 } });
+    const expectedMix: Record<string, number> = {};
+    for (const line of csv.trim().split("\n").slice(1)) {
+      const d = line.split(",")[8];
+      expectedMix[d] = (expectedMix[d] ?? 0) + 1;
+    }
+    expect(res.data).toMatchObject({ imported: 1000, skipped: 0, mix: expectedMix });
     expect(res.data.warnings).toEqual([]);
     datasetId = res.data.dataset.id;
-    const unmatched = await db.replayCase.count({ where: { datasetId, payload: { path: ["vendor_id"], equals: null } } });
-    expect(unmatched).toBe(0);
+    const cases = await db.replayCase.findMany({ where: { datasetId }, select: { payload: true } });
+    expect(cases.filter((c) => !(c.payload as { vendor_id?: string }).vendor_id)).toHaveLength(0);
     const list = await call(listDatasets, { user: "auditor" });
     expect(list.data.datasets).toHaveLength(1);
   });

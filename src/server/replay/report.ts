@@ -135,7 +135,7 @@ export async function computeRunReport(db: OrgDb, runId: string, worstN = 20): P
 export async function computeComparison(db: OrgDb, comparisonId: string) {
   const comparison = await db.replayComparison.findFirst({
     where: { id: comparisonId },
-    include: { dataset: true, runs: { orderBy: { createdAt: "asc" } } },
+    include: { dataset: true, runs: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] } },
   });
   if (!comparison) return null;
   const reports = await Promise.all(comparison.runs.map((r) => computeRunReport(db, r.id)));
