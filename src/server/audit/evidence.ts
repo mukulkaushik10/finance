@@ -13,6 +13,7 @@ import { canonicalJson } from "./canonical";
 import { formatMoney } from "@/lib/money";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { OUTCOME_LABEL } from "../gate/decide";
+import { isControlFailure } from "../rules/routing";
 import { STATUS_LABEL } from "../actions/labels";
 
 // Evidence pack: a ZIP with a PDF summary, CSVs of every action, rule result, review and
@@ -270,7 +271,8 @@ async function summaryPdf(p: PdfInput): Promise<Uint8Array> {
     kv("Rejected", String(count((a) => a.status === "rejected")));
     kv("Blocked", String(count((a) => a.status === "blocked")));
     kv("Waiting for review", String(count((a) => a.status === "pending_review")));
-    kv("Approved despite a failed rule", `${count((a) => a.status === "approved" && a.ruleResults.some((r: any) => r.result === "fail"))} (${formatMoney(sum((a) => a.status === "approved" && a.ruleResults.some((r: any) => r.result === "fail")), cur)})`);
+    const overridden = (a: any) => a.status === "approved" && a.ruleResults.some(isControlFailure);
+    kv("Approved despite a failed check", `${count(overridden)} (${formatMoney(sum(overridden), cur)})`);
     const config = p.records.filter((r) => ["rule.changed", "rule.created", "autonomy.changed", "workflow.settings_changed"].includes(r.eventType));
     heading("Policy and autonomy changes in this period");
     if (!config.length) text("None.", { color: muted });

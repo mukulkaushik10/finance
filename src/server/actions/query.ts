@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { forOrg } from "../db/dal";
 import { requirePermission, type Ctx } from "../auth/session";
+import { CONTROL_FAILURE_WHERE } from "../rules/routing";
 
 // One filter vocabulary for the action list, the scorecard drill-downs and evidence exports.
 
@@ -29,12 +30,13 @@ export const ActionFilterSchema = z.object({
 export type ActionFilter = z.infer<typeof ActionFilterSchema>;
 
 /**
- * Money at risk: invoices that went ahead even though a rule failed.
+ * Money at risk: invoices that went ahead even though a control check failed. Approval-limit
+ * routing is excluded: a controller approving within their authority is the control working.
  *  - a person approved it despite a failed rule (an override), or
  *  - in shadow mode the agent went ahead with an approval the rules would have stopped.
  */
 export const MONEY_AT_RISK: Prisma.ActionWhereInput = {
-  ruleResults: { some: { result: "fail" } },
+  ruleResults: { some: CONTROL_FAILURE_WHERE },
   OR: [
     { status: "approved" },
     { status: "logged", proposedDecision: "approve", computedOutcome: { not: "auto_approve" } },
@@ -52,7 +54,7 @@ export function actionWhere(f: Partial<ActionFilter>): Prisma.ActionWhereInput {
   if (f.agentId) and.push({ agentId: f.agentId });
   switch (f.flag) {
     case "money_at_risk": and.push(MONEY_AT_RISK); break;
-    case "overridden": and.push({ status: "approved", ruleResults: { some: { result: "fail" } } }); break;
+    case "overridden": and.push({ status: "approved", ruleResults: { some: CONTROL_FAILURE_WHERE } }); break;
     case "agent_wrong": and.push({ review: { agentWasCorrect: false } }); break;
     case "reviewed": and.push({ review: { isNot: null } }); break;
     case "escalated": and.push({ computedOutcome: "needs_human" }); break;

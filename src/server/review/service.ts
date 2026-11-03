@@ -7,6 +7,7 @@ import { badRequest, conflict, forbidden, notFound } from "../errors";
 import { appendAudit } from "../audit/chain";
 import { getErpConnector } from "../connectors/erp";
 import { enqueue, QUEUES } from "../jobs/queue";
+import { isControlFailure } from "../rules/routing";
 
 export const ReviewSchema = z.object({
   decision: z.enum(["approve", "reject"]),
@@ -64,7 +65,7 @@ export async function reviewAction(ctx: Ctx, actionId: string, input: unknown, o
         erpRef = (await erp.postApprovedInvoice({ invoiceId: action.externalRef, amountMinor: action.amountMinor, currency: action.currency, glCode: action.proposedGlCode })).externalRef;
       }
     }
-    const failedRules = action.ruleResults.filter((r) => r.result === "fail");
+    const failedRules = action.ruleResults.filter(isControlFailure);
     const audit = await appendAudit(tx, ctx.organisationId, {
       eventType: "action.reviewed",
       entityType: "action",

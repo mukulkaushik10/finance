@@ -7,6 +7,7 @@ import { formatMoney, formatBps } from "@/lib/money";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { ReviewPanel } from "./review-panel";
 import type { InvoiceSubject } from "@/server/workflows/ap_invoice/subject";
+import { isControlFailure } from "@/server/rules/routing";
 
 type Detail = Awaited<ReturnType<typeof getActionDetail>>;
 
@@ -19,6 +20,7 @@ export function ActionDetail({ detail, back, nextId, canExport }: { detail: Deta
   const { action: a, audit } = detail;
   const s = a.payload as unknown as InvoiceSubject;
   const failed = a.ruleResults.filter((r) => r.result === "fail");
+  const controlFailures = a.ruleResults.filter(isControlFailure);
   const reviewable = (a.status === "pending_review" || a.status === "logged") && !a.review;
   const reasons = a.gateReasons as string[];
 
@@ -96,12 +98,12 @@ export function ActionDetail({ detail, back, nextId, canExport }: { detail: Deta
                 <div className="text-xs text-muted">
                   {a.review.agentWasCorrect ? "Counted as the agent being right." : `Counted as the agent being wrong (correct answer: ${DECISION_TEXT[a.review.correctDecision].toLowerCase()}).`}
                 </div>
-                {a.review.decision === "approve" && failed.length ? <Alert tone="warn">Approved even though {failed.length} check{failed.length > 1 ? "s" : ""} failed. This counts as money at risk.</Alert> : null}
+                {a.review.decision === "approve" && controlFailures.length ? <Alert tone="warn">Approved even though {controlFailures.length} check{controlFailures.length > 1 ? "s" : ""} failed. This counts as money at risk.</Alert> : null}
               </CardBody>
             </Card>
           ) : reviewable ? (
             detail.canReview ? (
-              <ReviewPanel actionId={a.id} escalated={a.proposedDecision === "escalate"} spotCheck={a.status === "logged"} failedCount={failed.length} nextId={nextId ?? null} />
+              <ReviewPanel actionId={a.id} escalated={a.proposedDecision === "escalate"} spotCheck={a.status === "logged"} failedCount={controlFailures.length} nextId={nextId ?? null} />
             ) : (
               <Alert tone="info" title="You can't decide this one">
                 {a.requiredRole ? `It needs ${APPROVER_TEXT[a.requiredRole].toLowerCase()}.` : "Your role is read-only."}
