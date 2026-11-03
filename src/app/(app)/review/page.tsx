@@ -50,7 +50,7 @@ function QueueTable({ title, description, rows, empty }: { title: string; descri
       {rows.length === 0 ? <EmptyState title={empty} /> : (
         <Table data-testid="queue-table">
           <thead>
-            <tr><Th>Invoice</Th><Th className="text-right">Amount</Th><Th>Agent wants to</Th><Th>Why it's here</Th><Th>Who can approve</Th><Th>Waiting since</Th></tr>
+            <tr><Th>Invoice</Th><Th className="text-right">Amount</Th><Th>Agent wants to</Th><Th>Why it’s here</Th><Th>Who can approve</Th><Th>Waiting since</Th></tr>
           </thead>
           <tbody>
             {rows.map((a) => {

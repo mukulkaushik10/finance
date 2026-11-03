@@ -48,7 +48,7 @@ export default async function ScorecardPage({ searchParams }: { searchParams: Pr
         title="Scorecard"
         description={`Accounts payable · ${wf.name.split("—")[1]?.trim() ?? wf.name} · Level ${wf.autonomyLevel}: ${AUTONOMY_LEVELS[wf.autonomyLevel].name}`}
       />
-      {sp.denied ? <Alert tone="warn" className="mb-4">You don't have access to that page.</Alert> : null}
+      {sp.denied ? <Alert tone="warn" className="mb-4">You don’t have access to that page.</Alert> : null}
       <div className="mb-5 flex flex-wrap items-center gap-1.5" aria-label="Choose week">
         <span className="mr-1 text-sm text-muted">Week of</span>
         {weeks.slice().reverse().map((x) => (
@@ -93,7 +93,7 @@ export default async function ScorecardPage({ searchParams }: { searchParams: Pr
         </Table>
       </Card>
       <p className="mt-3 text-xs text-muted">
-        Accuracy compares the agent's decision with the decision of the person who reviewed the invoice. Money at risk is invoices that were paid even though a check failed: a person overrode the check, or the agent went ahead in shadow mode.
+        Accuracy compares the agent’s decision with the decision of the person who reviewed the invoice. Money at risk is invoices that were paid even though a check failed: a person overrode the check, or the agent went ahead in shadow mode.
       </p>
     </>
   );

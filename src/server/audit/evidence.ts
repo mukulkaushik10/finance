@@ -172,7 +172,6 @@ function pdfSafe(s: string): string {
 interface PdfInput {
   orgName: string; scopeLabel: string; generatedAt: Date; generatedBy: string;
   chain: Awaited<ReturnType<typeof verifyChain>>; recordsIntact: boolean; recordCount: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   actions: any[];
   records: { seq: number; eventType: string; occurredAt: Date; hash: string; actorType: string; payload: unknown }[];
   single: boolean;

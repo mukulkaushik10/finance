@@ -8,7 +8,6 @@ import { formatDate } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/cn";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 interface Props {
   initialTab: string; canEdit: boolean; appUrl: string; currentUserId: string; q: string;
   workflow: { id: string; erpConnector: string }; connectors: Record<string, string>;
@@ -87,7 +86,7 @@ function Agents({ data, canEdit, appUrl }: Props) {
     <div className="space-y-4">
       {issued ? (
         <Alert tone="good" title={`Credentials for ${issued.name}`}>
-          <p className="mb-2">Copy these now. They won't be shown again.</p>
+          <p className="mb-2">Copy these now. They won’t be shown again.</p>
           <div className="space-y-2">
             <Secret label="API key (agent → Control Room)" value={issued.apiKey} />
             {issued.signingSecret ? <Secret label="Signing secret (Control Room → agent)" value={issued.signingSecret} /> : null}

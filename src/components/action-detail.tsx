@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, Download, FileText } from "lucide-react";
 import type { getActionDetail } from "@/server/review/service";
-import { Alert, Badge, Card, CardBody, CardHeader, LinkButton } from "@/components/ui";
+import { Alert, Badge, Card, CardBody, CardHeader } from "@/components/ui";
 import { APPROVER_TEXT, DECISION_TEXT, RuleResultList, StatusBadge } from "@/components/action-bits";
 import { formatMoney, formatBps } from "@/lib/money";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -38,7 +38,7 @@ export function ActionDetail({ detail, back, nextId, canExport }: { detail: Deta
         <div className="text-right">
           <div className="text-3xl font-semibold tabular" data-testid="action-amount">{formatMoney(a.amountMinor, a.currency)}</div>
           {canExport ? (
-            <LinkButton href={`/api/audit/export?actionId=${a.id}`} size="sm" className="mt-2" data-testid="export-action"><Download className="h-4 w-4" /> Evidence pack</LinkButton>
+            <a href={`/api/audit/export?actionId=${a.id}`} download className="mt-2 inline-flex h-8 items-center gap-2 rounded-md border border-border-strong bg-surface px-3 text-sm font-medium text-ink hover:bg-surface-2" data-testid="export-action"><Download className="h-4 w-4" /> Evidence pack</a>
           ) : null}
         </div>
       </div>
@@ -52,7 +52,7 @@ export function ActionDetail({ detail, back, nextId, canExport }: { detail: Deta
               <Fact label="GL code" value={a.proposedGlCode ?? "—"} />
               <Fact label="Confidence" value={a.agentConfidenceBps === null ? "Not given" : formatBps(a.agentConfidenceBps, 0)} />
               <div className="sm:col-span-3">
-                <div className="text-xs font-medium uppercase tracking-wide text-muted">Agent's reason</div>
+                <div className="text-xs font-medium uppercase tracking-wide text-muted">Agent’s reason</div>
                 <div className="mt-0.5 text-sm text-ink">{a.agentReason ? `“${a.agentReason}”` : "No reason given"}</div>
                 <div className="mt-1 text-xs text-muted">{a.agent.name}{a.agent.vendorName ? ` (${a.agent.vendorName})` : ""} · version {a.agentVersion}</div>
               </div>
