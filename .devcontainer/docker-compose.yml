@@ -1,0 +1,31 @@
+# GitHub Codespaces / VS Code Dev Containers: the app container plus Postgres 16.
+# The app shares the database container's network, so Postgres is at localhost:5432,
+# matching DATABASE_URL in .env.example.
+services:
+  app:
+    image: mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm
+    volumes:
+      - ../..:/workspaces:cached
+    command: sleep infinity
+    network_mode: service:db
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: controlroom
+      POSTGRES_PASSWORD: controlroom
+      POSTGRES_DB: controlroom
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U controlroom -d controlroom"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata:

@@ -12,7 +12,20 @@ The MVP covers **accounts payable invoice agents**. The data model is generic (w
 | Audit trail | Append-only, hash-chained record of everything; "Verify chain"; evidence packs (PDF and CSV) | **Audit trail** |
 | Scorecard | Weekly volume, accuracy, escalation rate, money auto-approved, money at risk, cost per invoice; every number drills down | **Scorecard** (home) |
 
-## Run it
+## Try it in your browser (no install)
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/mukulkaushik10/finance?quickstart=1)
+
+1. Click the button above, or go to **Code → Codespaces → Create codespace on main** on GitHub.
+2. Wait about 3–5 minutes the first time. The codespace installs everything, creates the database and loads the demo data.
+3. The app starts by itself. Click **Open in Browser** on the "port 3000" pop-up, or open the **Ports** tab and click the globe icon next to *Control Room*.
+4. Click **Dana Whitfield, Controller**. The password for every demo account is `demo1234`.
+
+The address is private to your GitHub account. To let a colleague try it, right-click port 3000 in the **Ports** tab, choose **Port Visibility → Public**, and send them the address. Anyone with the address can then sign in with the demo passwords, so switch it back to Private afterwards.
+
+The codespace stops after 30 minutes of inactivity. Reopen it from **Code → Codespaces** and the app starts again with your data intact.
+
+## Run it on your own computer
 
 Requirements: Node 22 and Postgres 16. No Redis is needed; background jobs run on Postgres.
 
