@@ -21,6 +21,12 @@ The MVP covers **accounts payable invoice agents**. The data model is generic (w
 3. The app starts by itself. Click **Open in Browser** on the "port 3000" pop-up, or open the **Ports** tab and click the globe icon next to *Control Room*.
 4. Click **Dana Whitfield, Controller**. The password for every demo account is `demo1234`.
 
+If your codespace opened on GitHub's default image (the terminal says "You are on our default image") or nothing started, paste this into the terminal at the bottom and press Enter. It prints the link to open:
+
+```bash
+git pull && bash scripts/codespace-start.sh
+```
+
 The address is private to your GitHub account. To let a colleague try it, right-click port 3000 in the **Ports** tab, choose **Port Visibility → Public**, and send them the address. Anyone with the address can then sign in with the demo passwords, so switch it back to Private afterwards.
 
 The codespace stops after 30 minutes of inactivity. Reopen it from **Code → Codespaces** and the app starts again with your data intact.
