@@ -1,0 +1,509 @@
+// Control Room data model.
+//
+// Conventions
+// - Every row carries organisationId; tenant scoping is enforced in src/server/db/dal.ts.
+// - Money is stored as BigInt minor units plus an ISO 4217 currency code. Never floats.
+// - Percentages are stored as basis points (500 = 5.00%).
+// - Names are workflow-generic ("workflow", "action", "rule") so that a support-refund
+//   module can be added by introducing a new WorkflowType and rule types, without a schema rewrite.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  controller
+  reviewer
+  auditor
+}
+
+enum WorkflowType {
+  ap_invoice
+  // refund   <- later version
+}
+
+enum AgentKind {
+  webhook
+  mock
+}
+
+enum Decision {
+  approve
+  reject
+  escalate
+}
+
+enum GateOutcome {
+  auto_approve
+  needs_human
+  block
+}
+
+enum ActionStatus {
+  logged          // shadow mode: recorded only, never enforced
+  auto_approved
+  pending_review
+  approved
+  rejected
+  blocked
+}
+
+enum ActionSource {
+  live
+  replay
+}
+
+enum RuleType {
+  three_way_match
+  approval_limit
+  duplicate_invoice
+  bank_details_change
+  blocked_vendor
+  custom_condition
+}
+
+enum RuleSeverity {
+  review // a failure sends the action to a person
+  block  // a failure stops the action outright
+}
+
+enum RuleResultValue {
+  pass
+  fail
+  not_applicable
+}
+
+enum ReplayRunStatus {
+  queued
+  running
+  completed
+  failed
+}
+
+model Organisation {
+  id           String   @id @default(cuid())
+  name         String
+  baseCurrency String   @default("USD")
+  settings     Json     @default("{}")
+  createdAt    DateTime @default(now())
+
+  users         User[]
+  agents        Agent[]
+  workflows     Workflow[]
+  rules         Rule[]
+  ruleVersions  RuleVersion[]
+  vendors       Vendor[]
+  purchaseOrders PurchaseOrder[]
+  goodsReceipts GoodsReceipt[]
+  actions       Action[]
+  ruleResults   RuleResult[]
+  reviews       Review[]
+  autonomyChanges AutonomyChange[]
+  replayDatasets ReplayDataset[]
+  replayCases   ReplayCase[]
+  replayComparisons ReplayComparison[]
+  replayRuns    ReplayRun[]
+  replayResults ReplayResult[]
+  auditRecords  AuditRecord[]
+  files         StoredFile[]
+}
+
+model User {
+  id             String   @id @default(cuid())
+  organisationId String
+  email          String   @unique
+  name           String
+  role           Role
+  passwordHash   String   // seam: replaced by an SSO identity link later
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+  reviews      Review[]
+
+  @@index([organisationId])
+}
+
+model Agent {
+  id                String    @id @default(cuid())
+  organisationId    String
+  name              String
+  vendorName        String?   // who built the agent (for bake-offs)
+  kind              AgentKind
+  endpointUrl       String?   // webhook agents: where replay invoices are sent
+  callbackUrl       String?   // optional: notified when a human decides a queued action
+  signingSecret     String    // HMAC secret for webhook signatures
+  apiKeyHash        String    @unique // sha256 of the agent's API key for /v1 calls
+  apiKeyPrefix      String
+  version           String    @default("1.0.0")
+  mockConfig        Json?     // { profile: "cautious" | "fast_pay", errorRate: 0..1, seed: string }
+  costPerActionMinor BigInt   @default(0)
+  costCurrency      String    @default("USD")
+  active            Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+  actions      Action[]
+  replayRuns   ReplayRun[]
+  workflows    Workflow[]
+
+  @@index([organisationId])
+}
+
+model Workflow {
+  id                   String       @id @default(cuid())
+  organisationId       String
+  type                 WorkflowType
+  name                 String
+  autonomyLevel        Int          @default(0) // 0 shadow, 1 humans approve all, 2 auto under limit, 3 auto all passing
+  autoApproveLimitMinor BigInt      @default(500000)
+  currency             String       @default("USD")
+  confidenceThresholdBps Int        @default(8500) // 0.85
+  promotionWindow      Int          @default(50)   // last N reviewed actions
+  promotionTargetBps   Int          @default(9500) // 95.00% accuracy
+  erpConnector         String       @default("fake_quickbooks")
+  primaryAgentId       String?
+  createdAt            DateTime     @default(now())
+
+  organisation    Organisation     @relation(fields: [organisationId], references: [id])
+  primaryAgent    Agent?           @relation(fields: [primaryAgentId], references: [id])
+  rules           Rule[]
+  actions         Action[]
+  autonomyChanges AutonomyChange[]
+  replayDatasets  ReplayDataset[]
+
+  @@index([organisationId])
+}
+
+model AutonomyChange {
+  id             String   @id @default(cuid())
+  organisationId String
+  workflowId     String
+  fromLevel      Int
+  toLevel        Int
+  accuracyBps    Int?     // rolling accuracy when the change was confirmed
+  sampleSize     Int?
+  confirmedById  String
+  reason         String
+  createdAt      DateTime @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+  workflow     Workflow     @relation(fields: [workflowId], references: [id])
+
+  @@index([organisationId, workflowId])
+}
+
+model Rule {
+  id             String       @id @default(cuid())
+  organisationId String
+  workflowId     String
+  type           RuleType
+  name           String
+  locked         Boolean      @default(false) // cannot be switched off (e.g. bank detail change review)
+  currentVersion Int          @default(1)
+  sortOrder      Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organisation Organisation  @relation(fields: [organisationId], references: [id])
+  workflow     Workflow      @relation(fields: [workflowId], references: [id])
+  versions     RuleVersion[]
+
+  @@index([organisationId, workflowId])
+}
+
+// Immutable. Every edit to a rule writes a new version; actions reference the exact version used.
+model RuleVersion {
+  id             String       @id @default(cuid())
+  organisationId String
+  ruleId         String
+  version        Int
+  enabled        Boolean
+  severity       RuleSeverity
+  params         Json
+  summary        String       // plain-language sentence, e.g. "Hold for review when ..."
+  changeNote     String?
+  createdById    String?
+  createdAt      DateTime     @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+  rule         Rule         @relation(fields: [ruleId], references: [id])
+  ruleResults  RuleResult[]
+
+  @@unique([ruleId, version])
+  @@index([organisationId])
+}
+
+// ---- Mock system of record (behind the ErpConnector interface) ----
+
+model Vendor {
+  id               String    @id @default(cuid())
+  organisationId   String
+  code             String    // e.g. V-0042
+  name             String
+  category         String    // drives the expected GL code
+  defaultGlCode    String
+  bankFingerprint  String    // hash of bank account details on file
+  bankChangedAt    DateTime?
+  blocked          Boolean   @default(false)
+  blockedReason    String?
+  createdAt        DateTime  @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+
+  @@unique([organisationId, code])
+  @@index([organisationId, name])
+}
+
+model PurchaseOrder {
+  id             String   @id @default(cuid())
+  organisationId String
+  poNumber       String
+  vendorCode     String
+  amountMinor    BigInt
+  currency       String
+  quantity       Int
+  unitPriceMinor BigInt
+  createdAt      DateTime @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+
+  @@unique([organisationId, poNumber])
+}
+
+model GoodsReceipt {
+  id               String   @id @default(cuid())
+  organisationId   String
+  grnNumber        String
+  poNumber         String
+  quantityReceived Int
+  receivedAt       DateTime
+  createdAt        DateTime @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+
+  @@unique([organisationId, grnNumber])
+}
+
+// ---- Actions: one proposed agent action, live or replayed ----
+
+model Action {
+  id               String        @id @default(cuid())
+  organisationId   String
+  workflowId       String
+  agentId          String
+  agentVersion     String
+  source           ActionSource  @default(live)
+  idempotencyKey   String?
+  subjectType      String        // "invoice" (later: "refund")
+  externalRef      String        // invoice_id
+  counterpartyKey  String        // vendor code or name
+  counterpartyName String
+  amountMinor      BigInt
+  currency         String
+  occurredOn       DateTime?     // invoice date
+  payload          Json          // full normalised subject, as received
+  proposedDecision Decision
+  proposedGlCode   String?
+  agentReason      String?
+  agentConfidenceBps Int?
+  gateOutcome      GateOutcome   // what was returned to the agent
+  computedOutcome  GateOutcome   // what the rules + level said (differs from gateOutcome only in shadow mode)
+  enforced         Boolean
+  gateReasons      Json          // string[]
+  requiredRole     Role?         // minimum approver role from approval-limit bands
+  autonomyLevel    Int
+  ruleSetVersion   String        // e.g. "rule_x@3,rule_y@1"
+  status           ActionStatus
+  costMinor        BigInt        @default(0)
+  costCurrency     String        @default("USD")
+  createdAt        DateTime      @default(now())
+  decidedAt        DateTime?
+
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+  workflow     Workflow     @relation(fields: [workflowId], references: [id])
+  agent        Agent        @relation(fields: [agentId], references: [id])
+  ruleResults  RuleResult[]
+  review       Review?
+
+  @@unique([organisationId, agentId, idempotencyKey])
+  @@index([organisationId, workflowId, createdAt])
+  @@index([organisationId, status])
+  @@index([organisationId, counterpartyKey])
+}
+
+model RuleResult {
+  id             String          @id @default(cuid())
+  organisationId String
+  actionId       String
+  ruleId         String
+  ruleVersionId  String
+  ruleName       String
+  ruleType       RuleType
+  severity       RuleSeverity
+  result         RuleResultValue
+  explanation    String
+  details        Json            @default("{}")
+
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+  action       Action       @relation(fields: [actionId], references: [id])
+  ruleVersion  RuleVersion  @relation(fields: [ruleVersionId], references: [id])
+
+  @@index([organisationId, actionId])
+}
+
+// A person's decision on a queued action. This is the ground truth for accuracy.
+model Review {
+  id              String   @id @default(cuid())
+  organisationId  String
+  actionId        String   @unique
+  reviewerId      String
+  decision        Decision // approve | reject
+  correctDecision Decision // what the agent should have proposed (approve | reject | escalate)
+  agentWasCorrect Boolean
+  reason          String
+  createdAt       DateTime @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+  action       Action       @relation(fields: [actionId], references: [id])
+  reviewer     User         @relation(fields: [reviewerId], references: [id])
+
+  @@index([organisationId, createdAt])
+}
+
+// ---- Replay testing ----
+
+model ReplayDataset {
+  id             String   @id @default(cuid())
+  organisationId String
+  workflowId     String
+  name           String
+  uploadedById   String
+  rowCount       Int
+  createdAt      DateTime @default(now())
+
+  organisation Organisation       @relation(fields: [organisationId], references: [id])
+  workflow     Workflow           @relation(fields: [workflowId], references: [id])
+  cases        ReplayCase[]
+  comparisons  ReplayComparison[]
+}
+
+model ReplayCase {
+  id                String   @id @default(cuid())
+  organisationId    String
+  datasetId         String
+  rowNumber         Int
+  externalRef       String   // invoice_id
+  counterpartyName  String
+  amountMinor       BigInt
+  currency          String
+  payload           Json     // normalised subject sent to the agent
+  expectedDecision  Decision
+  expectedGlCode    String?
+  fileId            String?  // optional invoice PDF
+
+  organisation Organisation   @relation(fields: [organisationId], references: [id])
+  dataset      ReplayDataset  @relation(fields: [datasetId], references: [id])
+  results      ReplayResult[]
+
+  @@index([organisationId, datasetId, rowNumber])
+}
+
+model ReplayComparison {
+  id             String   @id @default(cuid())
+  organisationId String
+  datasetId      String
+  name           String
+  createdById    String
+  createdAt      DateTime @default(now())
+
+  organisation Organisation  @relation(fields: [organisationId], references: [id])
+  dataset      ReplayDataset @relation(fields: [datasetId], references: [id])
+  runs         ReplayRun[]
+}
+
+model ReplayRun {
+  id             String          @id @default(cuid())
+  organisationId String
+  comparisonId   String
+  agentId        String
+  agentVersion   String
+  status         ReplayRunStatus @default(queued)
+  totalCases     Int
+  processedCases Int             @default(0)
+  error          String?
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  createdAt      DateTime        @default(now())
+
+  organisation Organisation     @relation(fields: [organisationId], references: [id])
+  comparison   ReplayComparison @relation(fields: [comparisonId], references: [id])
+  agent        Agent            @relation(fields: [agentId], references: [id])
+  results      ReplayResult[]
+}
+
+model ReplayResult {
+  id              String    @id @default(cuid())
+  organisationId  String
+  runId           String
+  caseId          String
+  agentDecision   Decision?  // null when the agent errored / timed out
+  agentGlCode     String?
+  agentReason     String?
+  agentConfidenceBps Int?
+  error           String?
+  decisionCorrect Boolean
+  glCorrect       Boolean?
+  gatedOutcome    GateOutcome? // what Control Room's rules would have done with this answer
+  failedRules     Json       @default("[]") // [{name, explanation}]
+  latencyMs       Int
+
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+  run          ReplayRun    @relation(fields: [runId], references: [id])
+  case         ReplayCase   @relation(fields: [caseId], references: [id])
+
+  @@unique([runId, caseId])
+  @@index([organisationId, runId])
+}
+
+// ---- Immutable audit trail (append-only; UPDATE/DELETE rejected by a DB trigger) ----
+
+model AuditRecord {
+  id             String   @id @default(cuid())
+  organisationId String
+  seq            Int      // per-organisation, gap-free
+  eventType      String   // action.evaluated | action.reviewed | rule.changed | autonomy.changed | agent.changed | ...
+  entityType     String
+  entityId       String
+  actorType      String   // agent | user | system
+  actorId        String
+  occurredAt     DateTime
+  payload        Json     // full snapshot of what happened
+  prevHash       String
+  hash           String
+
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+
+  @@unique([organisationId, seq])
+  @@index([organisationId, entityType, entityId])
+  @@index([organisationId, occurredAt])
+}
+
+model StoredFile {
+  id             String   @id @default(cuid())
+  organisationId String
+  filename       String
+  contentType    String
+  sizeBytes      Int
+  sha256         String
+  storageKey     String
+  createdAt      DateTime @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+}
