@@ -3,7 +3,7 @@ import { DEMO } from "@/server/seed/demo";
 import { forOrg } from "@/server/db/dal";
 import type { EvaluateRequest } from "@/server/gate/schemas";
 
-type RouteFn = (req: Request, ctx?: { params?: Promise<any> }) => Promise<Response>;
+type RouteFn = (req: Request, ctx: { params: Promise<any> }) => Promise<Response>;
 
 export async function call(
   fn: RouteFn,

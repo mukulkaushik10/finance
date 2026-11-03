@@ -38,9 +38,9 @@ type Handler<P> = (req: Request, params: P) => Promise<Response>;
 
 /** Wrap a route handler: resolves Next's async params and turns thrown errors into JSON responses. */
 export function route<P = Record<string, never>>(handler: Handler<P>) {
-  return async (req: Request, ctx?: { params?: Promise<P> | P }) => {
+  return async (req: Request, ctx: { params: Promise<P> }) => {
     try {
-      const params = (ctx?.params ? await ctx.params : {}) as P;
+      const params = ((ctx?.params ? await ctx.params : {}) ?? {}) as P;
       return await handler(req, params);
     } catch (e) {
       return errorResponse(e);
