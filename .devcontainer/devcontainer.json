@@ -1,17 +1,18 @@
 {
   "name": "Control Room",
-  "dockerComposeFile": "docker-compose.yml",
-  "service": "app",
-  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
-  "hostRequirements": { "cpus": 2, "memory": "8gb" },
+  // One container: Node 22 on Debian, with Docker inside it for the Postgres database.
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
   "forwardPorts": [3000],
   "portsAttributes": {
     "3000": { "label": "Control Room", "onAutoForward": "openBrowser" }
   },
-  // First start: install dependencies, create the databases and load the demo data (about 3 minutes).
-  "postCreateCommand": "bash .devcontainer/post-create.sh",
-  // Every time you open the codespace: start the web app and the background worker.
-  "postAttachCommand": "npm run dev",
+  // First start: install dependencies (the database and demo data are set up by the start script).
+  "postCreateCommand": "npm ci --no-audit --no-fund",
+  // Every time you open the codespace: start the database if needed, load demo data once, run the app.
+  "postAttachCommand": "bash scripts/codespace-start.sh",
   "customizations": {
     "codespaces": { "openFiles": ["README.md"] },
     "vscode": { "extensions": ["Prisma.prisma", "dbaeumer.vscode-eslint", "bradlc.vscode-tailwindcss"] }
