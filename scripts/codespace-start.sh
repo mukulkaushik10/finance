@@ -83,11 +83,28 @@ else
   URL="http://localhost:3000"
 fi
 
+# Stop any copy of the app that is still running (e.g. from an earlier `npm run dev`).
+pkill -f "next dev -p 3000" 2>/dev/null || true
+pkill -f "tsx worker/index.ts" 2>/dev/null || true
+sleep 1
+
+say "Starting the app (the link appears when it is ready)"
+npm run dev &
+DEV_PID=$!
+trap 'kill $DEV_PID 2>/dev/null; exit 0' INT TERM
+
+# Wait until the web server answers, then load the sign-in page once so the first visit is fast.
+for i in $(seq 1 180); do
+  node -e "require('http').get('http://localhost:3000/login',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))" 2>/dev/null && break
+  kill -0 $DEV_PID 2>/dev/null || fail "The app stopped while starting. Scroll up in this terminal for the error."
+  sleep 2
+done
+
 printf "\n\033[1;32m============================================================\033[0m\n"
-printf "\033[1;32m  Control Room is starting. Open this link in your browser:\033[0m\n\n"
+printf "\033[1;32m  Control Room is READY. Open this link in your browser:\033[0m\n\n"
 printf "    \033[1;4m%s\033[0m\n\n" "$URL"
 printf "  Sign in: click \"Dana Whitfield, Controller\" (password demo1234)\n"
 printf "  Keep this terminal open while you use the app.\n"
 printf "\033[1;32m============================================================\033[0m\n\n"
 
-exec npm run dev
+wait $DEV_PID
