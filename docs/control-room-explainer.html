@@ -1,0 +1,297 @@
+<title>Control Room Explained</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a single column "ledger" that follows one invoice from arrival to report card, then widens into grids for parts, people and markets. */
+:root {
+  --bg: #f3f6f6;
+  --paper: #ffffff;
+  --ink: #12282b;
+  --muted: #557074;
+  --line: #d5e1e2;
+  --brand: #0e6b6f;
+  --brand-soft: #e0f0f0;
+  --go: #1f8a4c;   --go-soft: #e3f4ea;
+  --wait: #b7791f; --wait-soft: #fbf1df;
+  --stop: #c0392b; --stop-soft: #fbe6e3;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Figtree", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1a1c; --paper: #142729; --ink: #e4efef; --muted: #93adb0; --line: #24393c;
+    --brand: #4fc1c3; --brand-soft: #143235;
+    --go: #4cc27e; --go-soft: #12301f; --wait: #e3a94a; --wait-soft: #33270f; --stop: #ef7466; --stop-soft: #3a1714;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1a1c; --paper: #142729; --ink: #e4efef; --muted: #93adb0; --line: #24393c;
+  --brand: #4fc1c3; --brand-soft: #143235;
+  --go: #4cc27e; --go-soft: #12301f; --wait: #e3a94a; --wait-soft: #33270f; --stop: #ef7466; --stop-soft: #3a1714;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.55; }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 56px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.1; }
+h1 { font-size: clamp(2.1rem, 6vw, 3.6rem); font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: clamp(1.5rem, 3.6vw, 2rem); font-weight: 800; letter-spacing: -0.01em; }
+h3 { font-size: 1.1rem; font-weight: 600; }
+p { margin: 0; }
+.eyebrow { font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--brand); font-weight: 600; }
+.lede { font-size: 1.15rem; color: var(--muted); max-width: 62ch; }
+.section-head { display: grid; gap: 8px; margin-bottom: 20px; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* Hero */
+.hero { display: grid; gap: 18px; }
+.hero h1 em { font-style: normal; color: var(--brand); }
+.analogy { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 8px; }
+.analogy div { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 4px; }
+.analogy b { font-family: var(--display); font-size: 1.05rem; }
+.analogy span { color: var(--muted); font-size: 0.95rem; }
+
+/* Flow */
+.flow { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; counter-reset: step; }
+.flow > li { display: grid; grid-template-columns: 44px 1fr; gap: 16px; position: relative; padding-bottom: 22px; }
+.flow > li:last-child { padding-bottom: 0; }
+.flow > li::before { counter-increment: step; content: counter(step); width: 44px; height: 44px; border-radius: 50%;
+  background: var(--brand); color: var(--bg); font-family: var(--display); font-weight: 800; font-size: 1.15rem;
+  display: grid; place-items: center; position: relative; z-index: 1; }
+.flow > li:not(:last-child)::after { content: ""; position: absolute; left: 21px; top: 44px; bottom: 0; width: 2px; background: var(--line); }
+.step { display: grid; gap: 8px; padding-top: 8px; min-width: 0; }
+.step p { color: var(--muted); max-width: 64ch; }
+.invoice { background: var(--paper); border: 1px dashed var(--line); border-radius: 8px; padding: 12px 14px; display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 0.85rem; }
+.invoice span { color: var(--muted); }
+.invoice b { color: var(--ink); font-weight: 600; }
+.checks { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.checks li { display: flex; gap: 10px; align-items: baseline; font-size: 0.95rem; }
+.tick { font-family: var(--mono); font-size: 0.72rem; font-weight: 600; padding: 2px 7px; border-radius: 4px; flex: none; }
+.tick.ok { background: var(--go-soft); color: var(--go); }
+.tick.warn { background: var(--wait-soft); color: var(--wait); }
+.lights { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.light { border-radius: 10px; padding: 12px 14px; display: grid; gap: 2px; border: 1px solid transparent; }
+.light b { font-family: var(--display); font-size: 1rem; display: flex; align-items: center; gap: 8px; }
+.light b::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: currentColor; flex: none; }
+.light span { font-size: 0.9rem; color: var(--ink); opacity: 0.85; }
+.light.go { background: var(--go-soft); color: var(--go); }
+.light.wait { background: var(--wait-soft); color: var(--wait); }
+.light.stop { background: var(--stop-soft); color: var(--stop); }
+.diary { font-family: var(--mono); font-size: 0.78rem; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; white-space: pre; color: var(--muted); }
+.diary b { color: var(--ink); font-weight: 600; }
+
+/* Five parts */
+.parts { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 14px; }
+.part { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 8px; align-content: start; }
+.part .kid { font-size: 0.98rem; }
+.part .real { font-size: 0.85rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 8px; }
+.part .real b { color: var(--brand); font-weight: 600; }
+
+/* Trust ladder */
+.ladder { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; align-items: end; }
+.rung { border-radius: 10px 10px 4px 4px; background: var(--brand-soft); padding: 12px; display: grid; gap: 4px; align-content: end; min-width: 0; }
+.rung:nth-child(1) { min-height: 120px; } .rung:nth-child(2) { min-height: 150px; } .rung:nth-child(3) { min-height: 180px; }
+.rung:nth-child(4) { min-height: 210px; background: var(--brand); color: var(--bg); }
+.rung:nth-child(4) .lvl, .rung:nth-child(4) span { color: var(--bg); }
+.rung .lvl { font-family: var(--mono); font-size: 0.72rem; color: var(--brand); font-weight: 600; letter-spacing: 0.08em; }
+.rung b { font-family: var(--display); font-size: 1.05rem; }
+.rung span { font-size: 0.85rem; color: var(--muted); }
+.note { font-size: 0.9rem; color: var(--muted); margin-top: 12px; max-width: 70ch; }
+
+/* People */
+.people { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.person { border-top: 3px solid var(--brand); background: var(--paper); border-radius: 0 0 10px 10px; padding: 14px; display: grid; gap: 4px; align-content: start; }
+.person .role { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--brand); font-weight: 600; }
+.person b { font-family: var(--display); font-size: 1.05rem; }
+.person span { font-size: 0.9rem; color: var(--muted); }
+
+/* Problem / solution */
+.versus { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.versus > div { border-radius: 12px; padding: 18px 20px; display: grid; gap: 10px; align-content: start; }
+.fear { background: var(--stop-soft); }
+.fix { background: var(--go-soft); }
+.versus h3 { font-size: 1.15rem; }
+.fear h3 { color: var(--stop); } .fix h3 { color: var(--go); }
+.versus ul { margin: 0; padding-left: 1.1em; display: grid; gap: 6px; }
+
+/* Markets */
+.markets { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.market { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 4px; }
+.market b { font-family: var(--display); font-size: 1.02rem; }
+.market span { font-size: 0.9rem; color: var(--muted); }
+.who { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.who div { padding: 14px 16px; border-left: 3px solid var(--brand); display: grid; gap: 2px; }
+.who b { font-family: var(--display); }
+.who span { color: var(--muted); font-size: 0.92rem; }
+
+/* Close */
+.close { background: var(--brand); color: var(--bg); border-radius: 16px; padding: 32px 28px; display: grid; gap: 10px; }
+.close h2 { font-size: clamp(1.5rem, 4vw, 2.3rem); }
+.close p { opacity: 0.85; max-width: 60ch; }
+
+@media (max-width: 560px) {
+  .ladder { grid-template-columns: 1fr 1fr; }
+  .rung { min-height: 0 !important; }
+}
+</style>
+
+<main class="wrap">
+
+  <header class="hero">
+    <div class="eyebrow">Control Room · for AI that pays bills</div>
+    <h1>AI pays the bills. <em>Control Room</em> makes sure it pays them right, and can prove it.</h1>
+    <p class="lede">Companies now use AI helpers to read supplier invoices and decide which ones to pay. They are fast, but a single wrong payment is real money gone. Control Room is the grown-up in the room: it sets the rules, checks the work, decides how much the AI is trusted, keeps a permanent record and hands out a report card.</p>
+    <div class="analogy">
+      <div><b>The AI helper</b><span>A very fast new employee who reads every bill.</span></div>
+      <div><b>Control Room</b><span>The manager who checks that employee's work before money leaves the bank.</span></div>
+      <div><b>The finance team</b><span>The people who set the rules and step in when something looks odd.</span></div>
+    </div>
+  </header>
+
+  <section>
+    <div class="section-head">
+      <div class="eyebrow">How it works</div>
+      <h2>Follow one bill from arrival to report card</h2>
+    </div>
+    <ol class="flow">
+      <li><div class="step">
+        <h3>A bill arrives</h3>
+        <p>A supplier sends an invoice. Here is one example.</p>
+        <div class="invoice mono"><span>Invoice <b>INV-20431</b></span><span>Supplier <b>Northwind Packaging</b></span><span>Amount <b>$12,480.00</b></span><span>Purchase order <b>PO-7712</b></span></div>
+      </div></li>
+      <li><div class="step">
+        <h3>The AI helper makes a call</h3>
+        <p>The AI reads the bill and says “Pay it”, along with how sure it is. In this case it is 94% sure.</p>
+      </div></li>
+      <li><div class="step">
+        <h3>Control Room checks the rules</h3>
+        <p>Before anything is paid, the finance team's rules run on the bill.</p>
+        <ul class="checks">
+          <li><span class="tick ok">PASS</span>Not a copy of a bill we already paid</li>
+          <li><span class="tick ok">PASS</span>We know this supplier and their bank details haven't changed</li>
+          <li><span class="tick ok">PASS</span>Matches what we ordered and what was delivered</li>
+          <li><span class="tick warn">CHECK</span>Over $10,000, so a person must approve it</li>
+        </ul>
+      </div></li>
+      <li><div class="step">
+        <h3>Control Room decides who has the final say</h3>
+        <p>Like a traffic light, every bill gets one of three outcomes.</p>
+        <div class="lights">
+          <div class="light go"><b>Pay it</b><span>Rules pass and the AI is trusted for this kind of bill.</span></div>
+          <div class="light wait"><b>A person checks</b><span>Something looks odd, the amount is large, or the AI isn't sure. Our example lands here.</span></div>
+          <div class="light stop"><b>Stop</b><span>A hard rule is broken, such as paying the same bill twice.</span></div>
+        </div>
+      </div></li>
+      <li><div class="step">
+        <h3>Everything goes in a permanent diary</h3>
+        <p>Each step is written down and chained to the step before it, so no one can quietly change or delete a page. Auditors can download the full story of any bill.</p>
+<div class="diary">09:14:02  <b>AI recommended</b>     pay INV-20431 · 94% sure
+09:14:02  <b>Rules checked</b>      3 passed · 1 needs approval
+09:14:02  <b>Sent to reviewer</b>   over $10,000 approval limit
+09:41:37  <b>Approved by</b>        Dana Whitfield, Controller
+          seal 7f3a…c91e  ← links to the previous entry</div>
+      </div></li>
+      <li><div class="step">
+        <h3>The AI gets a report card</h3>
+        <p>Every week the team sees how often the AI agreed with people, how many mistakes the rules caught, how much money was at risk and how many hours were saved. Good grades earn the AI more trust. Bad grades take it away.</p>
+      </div></li>
+    </ol>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <div class="eyebrow">The five parts</div>
+      <h2>Think of it like a school for the AI</h2>
+    </div>
+    <div class="parts">
+      <div class="part"><h3>Practice tests</h3><p class="kid">Before the AI works for real, it does homework on old bills where we already know the right answer.</p><p class="real"><b>Replay testing.</b> Run the AI against thousands of past invoices and see exactly where it would have gone wrong.</p></div>
+      <div class="part"><h3>Class rules</h3><p class="kid">“Never pay the same bill twice.” “Never pay more than we ordered.”</p><p class="real"><b>Business-rule engine.</b> Finance writes the rules in plain terms. Every change is versioned so you can see which rule applied to which bill.</p></div>
+      <div class="part"><h3>Trust levels</h3><p class="kid">The AI starts by only watching, then earns the right to do more on its own.</p><p class="real"><b>Autonomy gate.</b> Four levels, set per type of work. Only a controller can raise a level, and the reason is recorded.</p></div>
+      <div class="part"><h3>The permanent diary</h3><p class="kid">Written in permanent marker. No page can be erased or torn out.</p><p class="real"><b>Audit trail.</b> Tamper-evident records and one-click evidence packs for auditors.</p></div>
+      <div class="part"><h3>The report card</h3><p class="kid">“You got 97 out of 100 right and caught 3 mistakes.”</p><p class="real"><b>Outcome scorecard.</b> Accuracy, money at risk, time saved and trends, per AI and per type of work.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <div class="eyebrow">Earning trust</div>
+      <h2>The AI climbs a ladder, one step at a time</h2>
+    </div>
+    <div class="ladder">
+      <div class="rung"><span class="lvl">LEVEL 0</span><b>Watch only</b><span>The AI makes calls in the background. People do all the work.</span></div>
+      <div class="rung"><span class="lvl">LEVEL 1</span><b>Suggest</b><span>The AI suggests; a person approves every bill.</span></div>
+      <div class="rung"><span class="lvl">LEVEL 2</span><b>Small jobs alone</b><span>Pays routine, low-value bills; people handle the rest.</span></div>
+      <div class="rung"><span class="lvl">LEVEL 3</span><b>Trusted</b><span>Handles most bills. Rules and the diary still apply.</span></div>
+    </div>
+    <p class="note">At every level the rules still run. A broken rule stops the payment even for a fully trusted AI.</p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <div class="eyebrow">Who uses it</div>
+      <h2>The people around the table</h2>
+    </div>
+    <div class="people">
+      <div class="person"><span class="role">Controller</span><b>The teacher</b><span>Sets the rules, decides how much the AI is trusted and signs off on changes.</span></div>
+      <div class="person"><span class="role">Reviewer</span><b>The checker</b><span>Looks at the bills the AI or the rules weren't sure about and makes the call.</span></div>
+      <div class="person"><span class="role">Admin</span><b>The organiser</b><span>Sets up people, AI helpers and connections to the accounting system.</span></div>
+      <div class="person"><span class="role">Auditor</span><b>The inspector</b><span>Reads the diary and downloads evidence. Can look but never change anything.</span></div>
+      <div class="person"><span class="role">CFO</span><b>The principal</b><span>Reads the report card and decides whether to let the AI do more.</span></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <div class="eyebrow">Why it matters</div>
+      <h2>The problem it solves</h2>
+    </div>
+    <div class="versus">
+      <div class="fear"><h3>Without Control Room</h3>
+        <ul>
+          <li>The AI might pay a fake or duplicate invoice.</li>
+          <li>No one can explain later why a payment went out.</li>
+          <li>Auditors and regulators ask for proof that people stayed in control.</li>
+          <li>So most teams never let the AI do real work, and the savings never arrive.</li>
+        </ul></div>
+      <div class="fix"><h3>With Control Room</h3>
+        <ul>
+          <li>Rules catch costly mistakes before money leaves.</li>
+          <li>Every decision has a permanent, explainable record.</li>
+          <li>The AI is tested on past bills before it touches real ones.</li>
+          <li>Trust grows step by step, backed by real numbers.</li>
+        </ul></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <div class="eyebrow">Who it's for</div>
+      <h2>Customers and industries to start with</h2>
+    </div>
+    <div class="who">
+      <div><b>Finance teams</b><span>CFOs, controllers and accounts payable managers at companies handling thousands of bills a month.</span></div>
+      <div><b>AI agent builders</b><span>Companies selling AI finance helpers who need to prove they are safe.</span></div>
+      <div><b>Outsourced AP firms</b><span>Bookkeeping and shared-service providers processing bills for many clients.</span></div>
+    </div>
+    <div class="markets">
+      <div class="market"><b>Manufacturing and distribution</b><span>Many suppliers, purchase orders and deliveries to match.</span></div>
+      <div class="market"><b>Retail and e-commerce</b><span>High bill volume from a long tail of vendors.</span></div>
+      <div class="market"><b>Healthcare</b><span>Heavy supplier spend and strict audit requirements.</span></div>
+      <div class="market"><b>Construction and real estate</b><span>Large invoices with real risk of overbilling or duplicates.</span></div>
+      <div class="market"><b>Financial services and insurance</b><span>Tightly regulated, so the permanent record matters most.</span></div>
+      <div class="market"><b>Shared-service centres</b><span>Huge volumes where small error rates add up fast.</span></div>
+    </div>
+  </section>
+
+  <section class="close">
+    <div class="eyebrow" style="color: inherit; opacity: 0.8;">In one sentence</div>
+    <h2>Let AI do the bill-paying work, with rules, proof and a report card.</h2>
+    <p>Control Room helps finance teams adopt AI safely: faster payments and fewer people hours, without losing control of the money.</p>
+  </section>
+
+</main>
