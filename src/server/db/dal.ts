@@ -7,6 +7,9 @@ import { rawPrisma } from "./client";
 // finds nothing.
 
 const UNSCOPED_MODELS = new Set(["Organisation"]);
+// Supplier-owned models have no organisationId: buyer code may only reach them through
+// relations (include/select) of a connection, invoice or bank change, never directly.
+const SUPPLIER_ONLY_MODELS = new Set(["VendorAccount", "VendorUser", "VendorBankAccount"]);
 
 const READ_OPS = new Set([
   "findUnique", "findUniqueOrThrow", "findFirst", "findFirstOrThrow", "findMany",
@@ -21,6 +24,7 @@ export function forOrg(organisationId: string) {
       $allModels: {
         async $allOperations({ model, operation, args, query }) {
           if (UNSCOPED_MODELS.has(model)) return query(args);
+          if (SUPPLIER_ONLY_MODELS.has(model)) throw new Error(`${model} belongs to a supplier account; buyer code can't query it directly`);
           const a = (args ?? {}) as Record<string, unknown>;
           const explicit = (a.where as { organisationId?: unknown } | undefined)?.organisationId;
           if (explicit !== undefined && explicit !== organisationId) {

@@ -14,19 +14,23 @@ export type Permission =
   | "audit:view"
   | "audit:export"
   | "settings:view"
-  | "settings:edit";
+  | "settings:edit"
+  | "suppliers:view"
+  | "suppliers:manage"
+  | "payments:manage";
 
 const ALL: Permission[] = [
   "scorecard:view", "actions:view", "actions:review", "rules:view", "rules:edit",
   "autonomy:view", "autonomy:change", "replay:view", "replay:run",
   "audit:view", "audit:export", "settings:view", "settings:edit",
+  "suppliers:view", "suppliers:manage", "payments:manage",
 ];
 
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   admin: ALL,
   controller: ALL.filter((p) => p !== "settings:edit"),
-  reviewer: ["scorecard:view", "actions:view", "actions:review", "rules:view", "autonomy:view", "replay:view", "audit:view"],
-  auditor: ["scorecard:view", "actions:view", "rules:view", "autonomy:view", "replay:view", "audit:view", "audit:export"],
+  reviewer: ["scorecard:view", "actions:view", "actions:review", "rules:view", "autonomy:view", "replay:view", "audit:view", "suppliers:view"],
+  auditor: ["scorecard:view", "actions:view", "rules:view", "autonomy:view", "replay:view", "audit:view", "audit:export", "suppliers:view"],
 };
 
 export function can(role: Role, permission: Permission): boolean {

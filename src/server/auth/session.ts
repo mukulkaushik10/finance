@@ -38,6 +38,7 @@ export async function ctxFromToken(token: string | undefined | null): Promise<Ct
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secret());
+    if (payload.typ !== undefined || typeof payload.uid !== "string") return null; // e.g. a supplier token
     const user = await rawPrisma.user.findUnique({ where: { id: String(payload.uid) } });
     if (!user || !user.active) return null;
     return { organisationId: user.organisationId, user: { id: user.id, name: user.name, email: user.email, role: user.role } };

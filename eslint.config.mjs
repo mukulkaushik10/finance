@@ -12,6 +12,8 @@ const RAW_CLIENT_ALLOWED = [
   "src/server/audit/evidence.ts",
   "src/server/auth/session.ts",
   "src/server/auth/login.ts",
+  "src/server/portal/session.ts",
+  "src/server/portal/auth.ts",
   "src/server/agents/keys.ts",
   "src/server/replay/service.ts",
   "src/server/seed/**",

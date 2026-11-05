@@ -27,13 +27,25 @@ export type AuditEventType =
   | "vendor.changed"
   | "user.changed"
   | "replay.completed"
-  | "evidence.exported";
+  | "evidence.exported"
+  | "bank_account.added"
+  | "bank_account.changed"
+  | "supplier.invited"
+  | "supplier.connected"
+  | "supplier.bank_change_requested"
+  | "supplier.bank_change_decided"
+  | "invoice.submitted"
+  | "invoice.decided"
+  | "invoice.payment_scheduled"
+  | "invoice.paid"
+  | "invoice.cancelled"
+  | "invoice.message";
 
 export interface AuditEvent {
   eventType: AuditEventType;
   entityType: string;
   entityId: string;
-  actorType: "agent" | "user" | "system";
+  actorType: "agent" | "user" | "system" | "supplier";
   actorId: string;
   occurredAt?: Date;
   payload: unknown;

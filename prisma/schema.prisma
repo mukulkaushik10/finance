@@ -46,7 +46,7 @@ enum GateOutcome {
 }
 
 enum ActionStatus {
-  logged          // shadow mode: recorded only, never enforced
+  logged // shadow mode: recorded only, never enforced
   auto_approved
   pending_review
   approved
@@ -70,7 +70,7 @@ enum RuleType {
 
 enum RuleSeverity {
   review // a failure sends the action to a person
-  block  // a failure stops the action outright
+  block // a failure stops the action outright
 }
 
 enum RuleResultValue {
@@ -87,31 +87,39 @@ enum ReplayRunStatus {
 }
 
 model Organisation {
-  id           String   @id @default(cuid())
-  name         String
-  baseCurrency String   @default("USD")
-  settings     Json     @default("{}")
-  createdAt    DateTime @default(now())
+  id             String   @id @default(cuid())
+  name           String
+  baseCurrency   String   @default("USD")
+  billingAddress String? // printed as "Bill to" on supplier invoices
+  settings       Json     @default("{}")
+  createdAt      DateTime @default(now())
 
-  users         User[]
-  agents        Agent[]
-  workflows     Workflow[]
-  rules         Rule[]
-  ruleVersions  RuleVersion[]
-  vendors       Vendor[]
-  purchaseOrders PurchaseOrder[]
-  goodsReceipts GoodsReceipt[]
-  actions       Action[]
-  ruleResults   RuleResult[]
-  reviews       Review[]
-  autonomyChanges AutonomyChange[]
-  replayDatasets ReplayDataset[]
-  replayCases   ReplayCase[]
+  users             User[]
+  agents            Agent[]
+  workflows         Workflow[]
+  rules             Rule[]
+  ruleVersions      RuleVersion[]
+  vendors           Vendor[]
+  purchaseOrders    PurchaseOrder[]
+  goodsReceipts     GoodsReceipt[]
+  actions           Action[]
+  ruleResults       RuleResult[]
+  reviews           Review[]
+  autonomyChanges   AutonomyChange[]
+  replayDatasets    ReplayDataset[]
+  replayCases       ReplayCase[]
   replayComparisons ReplayComparison[]
-  replayRuns    ReplayRun[]
-  replayResults ReplayResult[]
-  auditRecords  AuditRecord[]
-  files         StoredFile[]
+  replayRuns        ReplayRun[]
+  replayResults     ReplayResult[]
+  auditRecords      AuditRecord[]
+  files             StoredFile[]
+  bankAccounts      OrganisationBankAccount[]
+  vendorConnections VendorConnection[]
+  bankDetailChanges BankDetailChange[]
+  invoices          Invoice[]
+  invoiceLines      InvoiceLine[]
+  invoiceEvents     InvoiceEvent[]
+  invoiceMessages   InvoiceMessage[]
 }
 
 model User {
@@ -120,7 +128,7 @@ model User {
   email          String   @unique
   name           String
   role           Role
-  passwordHash   String   // seam: replaced by an SSO identity link later
+  passwordHash   String // seam: replaced by an SSO identity link later
   active         Boolean  @default(true)
   createdAt      DateTime @default(now())
 
@@ -131,22 +139,22 @@ model User {
 }
 
 model Agent {
-  id                String    @id @default(cuid())
-  organisationId    String
-  name              String
-  vendorName        String?   // who built the agent (for bake-offs)
-  kind              AgentKind
-  endpointUrl       String?   // webhook agents: where replay invoices are sent
-  callbackUrl       String?   // optional: notified when a human decides a queued action
-  signingSecret     String    // HMAC secret for webhook signatures
-  apiKeyHash        String    @unique // sha256 of the agent's API key for /v1 calls
-  apiKeyPrefix      String
-  version           String    @default("1.0.0")
-  mockConfig        Json?     // { profile: "cautious" | "fast_pay", errorRate: 0..1, seed: string }
-  costPerActionMinor BigInt   @default(0)
-  costCurrency      String    @default("USD")
-  active            Boolean   @default(true)
-  createdAt         DateTime  @default(now())
+  id                 String    @id @default(cuid())
+  organisationId     String
+  name               String
+  vendorName         String? // who built the agent (for bake-offs)
+  kind               AgentKind
+  endpointUrl        String? // webhook agents: where replay invoices are sent
+  callbackUrl        String? // optional: notified when a human decides a queued action
+  signingSecret      String // HMAC secret for webhook signatures
+  apiKeyHash         String    @unique // sha256 of the agent's API key for /v1 calls
+  apiKeyPrefix       String
+  version            String    @default("1.0.0")
+  mockConfig         Json? // { profile: "cautious" | "fast_pay", errorRate: 0..1, seed: string }
+  costPerActionMinor BigInt    @default(0)
+  costCurrency       String    @default("USD")
+  active             Boolean   @default(true)
+  createdAt          DateTime  @default(now())
 
   organisation Organisation @relation(fields: [organisationId], references: [id])
   actions      Action[]
@@ -157,19 +165,19 @@ model Agent {
 }
 
 model Workflow {
-  id                   String       @id @default(cuid())
-  organisationId       String
-  type                 WorkflowType
-  name                 String
-  autonomyLevel        Int          @default(0) // 0 shadow, 1 humans approve all, 2 auto under limit, 3 auto all passing
-  autoApproveLimitMinor BigInt      @default(500000)
-  currency             String       @default("USD")
-  confidenceThresholdBps Int        @default(8500) // 0.85
-  promotionWindow      Int          @default(50)   // last N reviewed actions
-  promotionTargetBps   Int          @default(9500) // 95.00% accuracy
-  erpConnector         String       @default("fake_quickbooks")
-  primaryAgentId       String?
-  createdAt            DateTime     @default(now())
+  id                     String       @id @default(cuid())
+  organisationId         String
+  type                   WorkflowType
+  name                   String
+  autonomyLevel          Int          @default(0) // 0 shadow, 1 humans approve all, 2 auto under limit, 3 auto all passing
+  autoApproveLimitMinor  BigInt       @default(500000)
+  currency               String       @default("USD")
+  confidenceThresholdBps Int          @default(8500) // 0.85
+  promotionWindow        Int          @default(50) // last N reviewed actions
+  promotionTargetBps     Int          @default(9500) // 95.00% accuracy
+  erpConnector           String       @default("fake_quickbooks")
+  primaryAgentId         String?
+  createdAt              DateTime     @default(now())
 
   organisation    Organisation     @relation(fields: [organisationId], references: [id])
   primaryAgent    Agent?           @relation(fields: [primaryAgentId], references: [id])
@@ -187,7 +195,7 @@ model AutonomyChange {
   workflowId     String
   fromLevel      Int
   toLevel        Int
-  accuracyBps    Int?     // rolling accuracy when the change was confirmed
+  accuracyBps    Int? // rolling accuracy when the change was confirmed
   sampleSize     Int?
   confirmedById  String
   reason         String
@@ -200,16 +208,16 @@ model AutonomyChange {
 }
 
 model Rule {
-  id             String       @id @default(cuid())
+  id             String   @id @default(cuid())
   organisationId String
   workflowId     String
   type           RuleType
   name           String
-  locked         Boolean      @default(false) // cannot be switched off (e.g. bank detail change review)
-  currentVersion Int          @default(1)
-  sortOrder      Int          @default(0)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  locked         Boolean  @default(false) // cannot be switched off (e.g. bank detail change review)
+  currentVersion Int      @default(1)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   organisation Organisation  @relation(fields: [organisationId], references: [id])
   workflow     Workflow      @relation(fields: [workflowId], references: [id])
@@ -227,7 +235,7 @@ model RuleVersion {
   enabled        Boolean
   severity       RuleSeverity
   params         Json
-  summary        String       // plain-language sentence, e.g. "Hold for review when ..."
+  summary        String // plain-language sentence, e.g. "Hold for review when ..."
   changeNote     String?
   createdById    String?
   createdAt      DateTime     @default(now())
@@ -243,19 +251,21 @@ model RuleVersion {
 // ---- Mock system of record (behind the ErpConnector interface) ----
 
 model Vendor {
-  id               String    @id @default(cuid())
-  organisationId   String
-  code             String    // e.g. V-0042
-  name             String
-  category         String    // drives the expected GL code
-  defaultGlCode    String
-  bankFingerprint  String    // hash of bank account details on file
-  bankChangedAt    DateTime?
-  blocked          Boolean   @default(false)
-  blockedReason    String?
-  createdAt        DateTime  @default(now())
+  id              String    @id @default(cuid())
+  organisationId  String
+  code            String // e.g. V-0042
+  name            String
+  category        String // drives the expected GL code
+  defaultGlCode   String
+  bankFingerprint String // hash of bank account details on file
+  bankChangedAt   DateTime?
+  blocked         Boolean   @default(false)
+  blockedReason   String?
+  createdAt       DateTime  @default(now())
 
-  organisation Organisation @relation(fields: [organisationId], references: [id])
+  organisation Organisation      @relation(fields: [organisationId], references: [id])
+  connection   VendorConnection?
+  invoices     Invoice[]
 
   @@unique([organisationId, code])
   @@index([organisationId, name])
@@ -270,6 +280,7 @@ model PurchaseOrder {
   currency       String
   quantity       Int
   unitPriceMinor BigInt
+  closedAt       DateTime? // fully billed or cancelled in the system of record
   createdAt      DateTime @default(now())
 
   organisation Organisation @relation(fields: [organisationId], references: [id])
@@ -294,37 +305,37 @@ model GoodsReceipt {
 // ---- Actions: one proposed agent action, live or replayed ----
 
 model Action {
-  id               String        @id @default(cuid())
-  organisationId   String
-  workflowId       String
-  agentId          String
-  agentVersion     String
-  source           ActionSource  @default(live)
-  idempotencyKey   String?
-  subjectType      String        // "invoice" (later: "refund")
-  externalRef      String        // invoice_id
-  counterpartyKey  String        // vendor code or name
-  counterpartyName String
-  amountMinor      BigInt
-  currency         String
-  occurredOn       DateTime?     // invoice date
-  payload          Json          // full normalised subject, as received
-  proposedDecision Decision
-  proposedGlCode   String?
-  agentReason      String?
+  id                 String       @id @default(cuid())
+  organisationId     String
+  workflowId         String
+  agentId            String
+  agentVersion       String
+  source             ActionSource @default(live)
+  idempotencyKey     String?
+  subjectType        String // "invoice" (later: "refund")
+  externalRef        String // invoice_id
+  counterpartyKey    String // vendor code or name
+  counterpartyName   String
+  amountMinor        BigInt
+  currency           String
+  occurredOn         DateTime? // invoice date
+  payload            Json // full normalised subject, as received
+  proposedDecision   Decision
+  proposedGlCode     String?
+  agentReason        String?
   agentConfidenceBps Int?
-  gateOutcome      GateOutcome   // what was returned to the agent
-  computedOutcome  GateOutcome   // what the rules + level said (differs from gateOutcome only in shadow mode)
-  enforced         Boolean
-  gateReasons      Json          // string[]
-  requiredRole     Role?         // minimum approver role from approval-limit bands
-  autonomyLevel    Int
-  ruleSetVersion   String        // e.g. "rule_x@3,rule_y@1"
-  status           ActionStatus
-  costMinor        BigInt        @default(0)
-  costCurrency     String        @default("USD")
-  createdAt        DateTime      @default(now())
-  decidedAt        DateTime?
+  gateOutcome        GateOutcome // what was returned to the agent
+  computedOutcome    GateOutcome // what the rules + level said (differs from gateOutcome only in shadow mode)
+  enforced           Boolean
+  gateReasons        Json // string[]
+  requiredRole       Role? // minimum approver role from approval-limit bands
+  autonomyLevel      Int
+  ruleSetVersion     String // e.g. "rule_x@3,rule_y@1"
+  status             ActionStatus
+  costMinor          BigInt       @default(0)
+  costCurrency       String       @default("USD")
+  createdAt          DateTime     @default(now())
+  decidedAt          DateTime?
 
   organisation Organisation @relation(fields: [organisationId], references: [id])
   workflow     Workflow     @relation(fields: [workflowId], references: [id])
@@ -395,18 +406,18 @@ model ReplayDataset {
 }
 
 model ReplayCase {
-  id                String   @id @default(cuid())
-  organisationId    String
-  datasetId         String
-  rowNumber         Int
-  externalRef       String   // invoice_id
-  counterpartyName  String
-  amountMinor       BigInt
-  currency          String
-  payload           Json     // normalised subject sent to the agent
-  expectedDecision  Decision
-  expectedGlCode    String?
-  fileId            String?  // optional invoice PDF
+  id               String   @id @default(cuid())
+  organisationId   String
+  datasetId        String
+  rowNumber        Int
+  externalRef      String // invoice_id
+  counterpartyName String
+  amountMinor      BigInt
+  currency         String
+  payload          Json // normalised subject sent to the agent
+  expectedDecision Decision
+  expectedGlCode   String?
+  fileId           String? // optional invoice PDF
 
   organisation Organisation   @relation(fields: [organisationId], references: [id])
   dataset      ReplayDataset  @relation(fields: [datasetId], references: [id])
@@ -449,20 +460,20 @@ model ReplayRun {
 }
 
 model ReplayResult {
-  id              String    @id @default(cuid())
-  organisationId  String
-  runId           String
-  caseId          String
-  agentDecision   Decision?  // null when the agent errored / timed out
-  agentGlCode     String?
-  agentReason     String?
+  id                 String       @id @default(cuid())
+  organisationId     String
+  runId              String
+  caseId             String
+  agentDecision      Decision? // null when the agent errored / timed out
+  agentGlCode        String?
+  agentReason        String?
   agentConfidenceBps Int?
-  error           String?
-  decisionCorrect Boolean
-  glCorrect       Boolean?
-  gatedOutcome    GateOutcome? // what Control Room's rules would have done with this answer
-  failedRules     Json       @default("[]") // [{name, explanation}]
-  latencyMs       Int
+  error              String?
+  decisionCorrect    Boolean
+  glCorrect          Boolean?
+  gatedOutcome       GateOutcome? // what Control Room's rules would have done with this answer
+  failedRules        Json         @default("[]") // [{name, explanation}]
+  latencyMs          Int
 
   organisation Organisation @relation(fields: [organisationId], references: [id])
   run          ReplayRun    @relation(fields: [runId], references: [id])
@@ -477,14 +488,14 @@ model ReplayResult {
 model AuditRecord {
   id             String   @id @default(cuid())
   organisationId String
-  seq            Int      // per-organisation, gap-free
-  eventType      String   // action.evaluated | action.reviewed | rule.changed | autonomy.changed | agent.changed | ...
+  seq            Int // per-organisation, gap-free
+  eventType      String // action.evaluated | action.reviewed | rule.changed | autonomy.changed | agent.changed | ...
   entityType     String
   entityId       String
-  actorType      String   // agent | user | system
+  actorType      String // agent | user | system
   actorId        String
   occurredAt     DateTime
-  payload        Json     // full snapshot of what happened
+  payload        Json // full snapshot of what happened
   prevHash       String
   hash           String
 
@@ -506,4 +517,295 @@ model StoredFile {
   createdAt      DateTime @default(now())
 
   organisation Organisation @relation(fields: [organisationId], references: [id])
+}
+
+// ============================================================== Buyer bank accounts
+// The organisation's own accounts that supplier invoices are paid from. Account numbers are
+// stored encrypted; screens only ever show the last four digits.
+
+enum BankAccountState {
+  active
+  archived
+}
+
+model OrganisationBankAccount {
+  id               String           @id @default(cuid())
+  organisationId   String
+  nickname         String // e.g. "Operating account"
+  holderName       String
+  bankName         String
+  routingNumber    String // US ABA routing number (9 digits)
+  accountLast4     String
+  accountNumberEnc String // AES-256-GCM, see src/server/crypto/secrets.ts
+  fingerprint      String
+  currency         String           @default("USD")
+  isDefault        Boolean          @default(false)
+  state            BankAccountState @default(active)
+  createdById      String
+  createdAt        DateTime         @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+  paidInvoices Invoice[]    @relation("PayFrom")
+
+  @@index([organisationId])
+}
+
+// ============================================================== Vendor portal
+// A supplier company has one VendorAccount, which can connect to many buyer organisations.
+// VendorAccount, VendorUser and VendorBankAccount belong to the supplier (no organisationId);
+// everything else carries both organisationId (buyer) and vendorAccountId (supplier) and is
+// reached through forOrg() on the buyer side and forVendor() on the supplier side.
+
+enum VendorUserRole {
+  owner
+  member
+}
+
+enum VendorConnectionStatus {
+  invited
+  active
+  suspended
+}
+
+enum InvoiceStatus {
+  draft
+  submitted
+  under_review
+  approved
+  needs_changes
+  rejected
+  scheduled
+  paid
+  cancelled
+}
+
+enum InvoiceKind {
+  invoice
+  credit_note
+}
+
+enum BankChangeStatus {
+  pending
+  approved
+  rejected
+  withdrawn
+}
+
+model VendorAccount {
+  id           String   @id @default(cuid())
+  legalName    String
+  taxId        String? // US EIN, e.g. 12-3456789
+  email        String
+  phone        String?
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  region       String? // state
+  postalCode   String?
+  country      String   @default("US")
+  createdAt    DateTime @default(now())
+
+  users           VendorUser[]
+  bankAccounts    VendorBankAccount[]
+  connections     VendorConnection[]
+  invoices        Invoice[]
+  invoiceLines    InvoiceLine[]
+  invoiceEvents   InvoiceEvent[]
+  invoiceMessages InvoiceMessage[]
+  bankChanges     BankDetailChange[]
+}
+
+model VendorUser {
+  id              String         @id @default(cuid())
+  vendorAccountId String
+  email           String         @unique
+  name            String
+  passwordHash    String
+  role            VendorUserRole @default(owner)
+  active          Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+
+  vendorAccount VendorAccount @relation(fields: [vendorAccountId], references: [id])
+
+  @@index([vendorAccountId])
+}
+
+model VendorBankAccount {
+  id               String   @id @default(cuid())
+  vendorAccountId  String
+  holderName       String
+  bankName         String
+  routingNumber    String
+  accountLast4     String
+  accountNumberEnc String
+  fingerprint      String
+  createdAt        DateTime @default(now())
+
+  vendorAccount VendorAccount      @relation(fields: [vendorAccountId], references: [id])
+  connections   VendorConnection[]
+  changesTo     BankDetailChange[] @relation("NewAccount")
+  changesFrom   BankDetailChange[] @relation("PreviousAccount")
+
+  @@index([vendorAccountId])
+}
+
+/**
+ * A buyer's vendor record linked to a supplier's portal account, starting from an invitation.
+ */
+model VendorConnection {
+  id               String                 @id @default(cuid())
+  organisationId   String
+  vendorId         String                 @unique
+  vendorAccountId  String?
+  status           VendorConnectionStatus @default(invited)
+  inviteEmail      String
+  inviteTokenHash  String?                @unique
+  inviteExpiresAt  DateTime?
+  invitedById      String
+  invitedAt        DateTime               @default(now())
+  acceptedAt       DateTime?
+  bankAccountId    String? // the supplier bank account this buyer has approved
+  paymentTermsDays Int                    @default(30)
+
+  organisation  Organisation       @relation(fields: [organisationId], references: [id])
+  vendor        Vendor             @relation(fields: [vendorId], references: [id])
+  vendorAccount VendorAccount?     @relation(fields: [vendorAccountId], references: [id])
+  bankAccount   VendorBankAccount? @relation(fields: [bankAccountId], references: [id])
+  invoices      Invoice[]
+  bankChanges   BankDetailChange[]
+
+  @@index([organisationId, status])
+  @@index([vendorAccountId])
+}
+
+/**
+ * A supplier asks to be paid into a different account. Nothing changes until the buyer approves.
+ */
+model BankDetailChange {
+  id                    String           @id @default(cuid())
+  organisationId        String
+  vendorAccountId       String
+  connectionId          String
+  newBankAccountId      String
+  previousBankAccountId String?
+  status                BankChangeStatus @default(pending)
+  requestedByName       String
+  requestedAt           DateTime         @default(now())
+  decidedById           String?
+  decidedByName         String?
+  decidedAt             DateTime?
+  verification          String? // how the buyer confirmed it, e.g. "Called known contact"
+  decisionNote          String?
+
+  organisation        Organisation       @relation(fields: [organisationId], references: [id])
+  vendorAccount       VendorAccount      @relation(fields: [vendorAccountId], references: [id])
+  connection          VendorConnection   @relation(fields: [connectionId], references: [id])
+  newBankAccount      VendorBankAccount  @relation("NewAccount", fields: [newBankAccountId], references: [id])
+  previousBankAccount VendorBankAccount? @relation("PreviousAccount", fields: [previousBankAccountId], references: [id])
+
+  @@index([organisationId, status])
+  @@index([vendorAccountId])
+}
+
+model Invoice {
+  id                 String        @id @default(cuid())
+  organisationId     String
+  vendorAccountId    String
+  connectionId       String
+  vendorId           String
+  kind               InvoiceKind   @default(invoice)
+  creditForInvoiceId String?
+  invoiceNumber      String
+  status             InvoiceStatus @default(draft)
+  currency           String        @default("USD")
+  poNumber           String?
+  grnNumber          String?
+  invoiceDate        DateTime
+  dueDate            DateTime
+  subtotalMinor      BigInt        @default(0)
+  taxMinor           BigInt        @default(0)
+  totalMinor         BigInt        @default(0)
+  notes              String?
+  bankFingerprint    String? // the approved account the supplier asked to be paid into
+  revision           Int           @default(0) // number of times submitted
+  actionId           String?       @unique // latest Control Room action for this invoice
+  supplierNote       String? // the latest message from the buyer that the supplier can see
+  submittedAt        DateTime?
+  decidedAt          DateTime?
+  scheduledFor       DateTime?
+  payFromAccountId   String?
+  paidAt             DateTime?
+  paymentReference   String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  organisation  Organisation             @relation(fields: [organisationId], references: [id])
+  vendorAccount VendorAccount            @relation(fields: [vendorAccountId], references: [id])
+  connection    VendorConnection         @relation(fields: [connectionId], references: [id])
+  vendor        Vendor                   @relation(fields: [vendorId], references: [id])
+  payFrom       OrganisationBankAccount? @relation("PayFrom", fields: [payFromAccountId], references: [id])
+  lines         InvoiceLine[]
+  events        InvoiceEvent[]
+  messages      InvoiceMessage[]
+
+  @@unique([connectionId, kind, invoiceNumber])
+  @@index([organisationId, status])
+  @@index([vendorAccountId, status])
+}
+
+model InvoiceLine {
+  id              String @id @default(cuid())
+  organisationId  String
+  vendorAccountId String
+  invoiceId       String
+  position        Int
+  description     String
+  quantity        Int
+  unitPriceMinor  BigInt
+  taxRateBps      Int    @default(0)
+  amountMinor     BigInt // quantity x unit price, before tax
+
+  organisation  Organisation  @relation(fields: [organisationId], references: [id])
+  vendorAccount VendorAccount @relation(fields: [vendorAccountId], references: [id])
+  invoice       Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+/**
+ * The status timeline both sides see. `note` is always safe to show the supplier.
+ */
+model InvoiceEvent {
+  id              String        @id @default(cuid())
+  organisationId  String
+  vendorAccountId String
+  invoiceId       String
+  status          InvoiceStatus
+  note            String?
+  actorType       String // supplier | buyer | system
+  actorName       String?
+  createdAt       DateTime      @default(now())
+
+  organisation  Organisation  @relation(fields: [organisationId], references: [id])
+  vendorAccount VendorAccount @relation(fields: [vendorAccountId], references: [id])
+  invoice       Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId, createdAt])
+}
+
+model InvoiceMessage {
+  id              String   @id @default(cuid())
+  organisationId  String
+  vendorAccountId String
+  invoiceId       String
+  authorType      String // supplier | buyer
+  authorName      String
+  body            String
+  createdAt       DateTime @default(now())
+
+  organisation  Organisation  @relation(fields: [organisationId], references: [id])
+  vendorAccount VendorAccount @relation(fields: [vendorAccountId], references: [id])
+  invoice       Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId, createdAt])
 }
