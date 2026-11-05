@@ -11,15 +11,19 @@ export const dynamic = "force-dynamic";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getPageCtx();
   const db = forOrg(ctx.organisationId);
-  const [org, queue] = await Promise.all([
+  const [org, queue, invoicesWaiting, bankChanges] = await Promise.all([
     rawPrisma.organisation.findUnique({ where: { id: ctx.organisationId } }),
     db.action.count({ where: { status: "pending_review" } }),
+    db.invoice.count({ where: { status: "under_review" } }),
+    db.bankDetailChange.count({ where: { status: "pending" } }),
   ]);
   const role = ctx.user.role;
   const items: NavItem[] = [
     { href: "/", label: "Scorecard", icon: "chart", show: can(role, "scorecard:view") },
     { href: "/review", label: "Review queue", icon: "inbox", badge: queue, show: can(role, "actions:view") },
     { href: "/actions", label: "All actions", icon: "list", show: can(role, "actions:view") },
+    { href: "/invoices", label: "Supplier invoices", icon: "receipt", badge: invoicesWaiting, show: can(role, "suppliers:view") },
+    { href: "/suppliers", label: "Suppliers", icon: "truck", badge: bankChanges, show: can(role, "suppliers:view") },
     { href: "/replay", label: "Replay testing", icon: "flask", show: can(role, "replay:view") },
     { href: "/rules", label: "Rules", icon: "rules", show: can(role, "rules:view") },
     { href: "/autonomy", label: "Autonomy", icon: "gauge", show: can(role, "autonomy:view") },

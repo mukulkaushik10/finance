@@ -11,6 +11,8 @@ The MVP covers **accounts payable invoice agents**. The data model is generic (w
 | Autonomy gate | `POST /v1/actions/evaluate` returns `auto_approve`, `needs_human` or `block`; Levels 0–3; promotion only when the track record supports it and a person confirms | **Autonomy**, **Review queue** |
 | Audit trail | Append-only, hash-chained record of everything; "Verify chain"; evidence packs (PDF and CSV) | **Audit trail** |
 | Scorecard | Weekly volume, accuracy, escalation rate, money auto-approved, money at risk, cost per invoice; every number drills down | **Scorecard** (home) |
+| Supplier portal | Suppliers (invited by the buyer) turn POs into invoices, see checks before sending, track status, message the buyer, issue credit notes, and manage bank details that the buyer must approve | **/portal** (separate sign-in) |
+| Payments | The buyer's own bank accounts (encrypted), approve / send back / reject supplier invoices, schedule payment, record it as paid | **Supplier invoices**, **Suppliers**, **Settings → Bank accounts** |
 
 ## Try it in your browser (no install)
 
@@ -59,6 +61,15 @@ Sign in at http://localhost:3000 with a demo account (password `demo1234`):
 | Admin | admin@harborpine.example | Everything, plus settings (agents, vendors, users, connector) |
 | Auditor | auditor@harborpine.example | See and export everything, change nothing |
 
+**Supplier portal** at http://localhost:3000/portal/login (same password):
+
+| Supplier | Email | Shows |
+|---|---|---|
+| Priya Raman, Brightpath Cleaning Services | priya@supplier.example | Invoices at every stage: paid, scheduled, waiting for a controller, sent back, draft |
+| Marco Diaz, Copperleaf Consulting | marco@supplier.example | A bank detail change waiting for the buyer's approval |
+
+An invitation waiting to be accepted: http://localhost:3000/portal/invite/demo-invite-harbor-pine
+
 The seed creates:
 - 1 organisation and 3 users.
 - 120 vendors, 3 of them blocked and 1 with recently changed bank details.
@@ -66,6 +77,7 @@ The seed creates:
 - 2 mock agents with different error profiles.
 - **`seed/invoices.csv`**: 1,000 synthetic invoices with known outcomes, for replay. Among them are duplicates, over-limit amounts, PO mismatches, missing receipts, blocked vendors and a changed bank account.
 - **Eight weeks of live history**: 560 invoices that went through the real gate, about 380 human reviews, a promotion from Level 1 to Level 2, and 30 invoices left waiting for review.
+- **Supplier portal data**: 2 buyer bank accounts, 2 connected suppliers with 5 portal invoices, 1 pending bank detail change and 1 open invitation.
 
 Demo agent API keys, for calling the evaluate endpoint yourself:
 
@@ -85,11 +97,23 @@ Fast-Pay AI             cr_demo_fastpay_00000000000000000000000
 4. **Tamper evidence.** In Audit trail, click Verify chain and it passes. Then run `npm run tamper`, which edits a record directly in the database as a superuser. Click Verify chain again and it names the altered record. Run `npm run tamper -- --restore` to undo.
 5. **Evidence for an auditor.** Sign in as the auditor. Every invoice page has an Evidence pack button, and Audit trail exports any month, date range or vendor. Nothing is editable, and the API refuses writes with 403.
 6. **API docs.** http://localhost:3000/api-docs (Swagger UI) and `/api/openapi.json`.
+7. **Supplier sends an invoice.** Sign in to the supplier portal as Priya, click New invoice, pick PO-90005, enter a number, Save and review, then Send. It goes through the same AI check and rules as any other invoice.
+8. **Buyer decides and pays.** As Dana, open Supplier invoices. Approve the invoice (or send it back with a message the supplier sees), schedule payment from one of your bank accounts, then record it as paid. Priya's timeline updates at each step.
+9. **Bank detail fraud check.** As Dana, open Suppliers. Marco's request to change bank account waits there; approving needs a note on how you verified it. Until it's decided, his payments can't be scheduled, and afterwards the bank-change rule sends his next invoices to a person.
+
+### How the supplier portal fits
+
+- Suppliers have their own accounts (`VendorAccount`, `VendorUser`) and a separate session cookie. A supplier token is refused by every staff route and the other way round.
+- `forVendor(vendorAccountId)` in `src/server/db/vendor-dal.ts` mirrors `forOrg`: every query is scoped to the supplier, and buyer-only tables (actions, rules, audit) are refused outright. Suppliers never see AI confidence, rule names or internal reasons.
+- One supplier account can connect to many buyers (`VendorConnection` links it to each buyer's vendor record).
+- A sent invoice becomes an action through the workflow's primary agent and `/v1/actions/evaluate` logic, so the rules, approval limits, review queue, scorecard and audit trail all apply. Decisions made in the review queue flow back to the supplier's invoice.
+- Bank account numbers (buyer and supplier) are AES-256-GCM encrypted (`BANK_ENCRYPTION_KEY`, falling back to a key derived from `SESSION_SECRET` in development); only the last four digits and a keyed fingerprint are used elsewhere.
+- Not built yet: moving money (payments are scheduled and recorded, not sent), email delivery (`src/server/portal/notify.ts` logs instead), e-invoicing networks, tax calculation.
 
 ## Tests
 
 ```bash
-npm test          # 160 unit + API tests (Vitest, real Postgres database "controlroom_test")
+npm test          # 188 unit + API tests (Vitest, real Postgres database "controlroom_test")
 ```
 
 ```bash

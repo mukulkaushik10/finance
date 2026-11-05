@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, FlaskConical, Gauge, Inbox, List, Scale, Settings, ShieldCheck } from "lucide-react";
+import { BarChart3, FlaskConical, Gauge, Inbox, List, Receipt, Scale, Settings, ShieldCheck, Truck } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Logo } from "@/components/logo";
 
 export interface NavItem { href: string; label: string; icon: string; badge?: number; show: boolean }
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  chart: BarChart3, inbox: Inbox, list: List, flask: FlaskConical, rules: Scale, gauge: Gauge, shield: ShieldCheck, settings: Settings,
+  chart: BarChart3, inbox: Inbox, list: List, flask: FlaskConical, rules: Scale, gauge: Gauge, shield: ShieldCheck, settings: Settings, receipt: Receipt, truck: Truck,
 };
 
 export function Sidebar({ items, orgName }: { items: NavItem[]; orgName: string }) {

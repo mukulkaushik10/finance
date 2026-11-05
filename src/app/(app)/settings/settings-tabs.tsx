@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
 interface Props {
   initialTab: string; canEdit: boolean; appUrl: string; currentUserId: string; q: string;
   workflow: { id: string; erpConnector: string }; connectors: Record<string, string>;
-  data: { agents: any[]; vendors: any[]; users: any[] };
+  data: { agents: any[]; vendors: any[]; users: any[]; bankAccounts: any[] };
 }
 
 async function send(url: string, method: string, body: unknown) {
@@ -23,7 +23,7 @@ async function send(url: string, method: string, body: unknown) {
 
 export function SettingsTabs(p: Props) {
   const [tab, setTab] = useState(p.initialTab);
-  const tabs = [["agents", "Agents"], ["erp", "System of record"], ["vendors", "Vendors"], ["users", "Users & roles"]];
+  const tabs = [["agents", "Agents"], ["erp", "System of record"], ["vendors", "Vendors"], ["bank", "Bank accounts"], ["users", "Users & roles"]];
   return (
     <>
       <div className="mb-4 flex gap-1 border-b border-border" role="tablist">
@@ -36,6 +36,7 @@ export function SettingsTabs(p: Props) {
       {tab === "agents" ? <Agents {...p} /> : null}
       {tab === "erp" ? <Erp {...p} /> : null}
       {tab === "vendors" ? <Vendors {...p} /> : null}
+      {tab === "bank" ? <BankAccounts {...p} /> : null}
       {tab === "users" ? <Users {...p} /> : null}
     </>
   );
@@ -254,6 +255,65 @@ function Users({ data, canEdit, currentUserId }: Props) {
           <Button onClick={async () => { setError(null); try { await send("/api/users", "POST", form); setForm({ name: "", email: "", role: "reviewer", password: "" }); router.refresh(); } catch (e) { setError((e as Error).message); } }}>Add user</Button>
         </CardBody>
       ) : null}
+    </Card>
+  );
+}
+
+function BankAccounts({ data, canEdit }: Props) {
+  const router = useRouter();
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ nickname: "", holderName: "", bankName: "", routingNumber: "", accountNumber: "", isDefault: false });
+  const [error, setError] = useState<string | null>(null);
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value });
+
+  async function add() {
+    setError(null);
+    try { await send("/api/bank-accounts", "POST", form); setAdding(false); setForm({ nickname: "", holderName: "", bankName: "", routingNumber: "", accountNumber: "", isDefault: false }); router.refresh(); }
+    catch (e) { setError((e as Error).message); }
+  }
+  async function change(a: any, body: Record<string, unknown>, question: string) {
+    const reason = window.prompt(question);
+    if (!reason) return;
+    try { await send(`/api/bank-accounts/${a.id}`, "PATCH", { ...body, reason }); router.refresh(); } catch (e) { alert((e as Error).message); }
+  }
+  return (
+    <Card>
+      <CardHeader
+        title="Bank accounts"
+        description="The accounts you pay supplier invoices from. Account numbers are stored encrypted and only the last four digits are ever shown. Control Room records payments; it doesn't move money."
+        action={canEdit && !adding ? <Button size="sm" onClick={() => setAdding(true)} data-testid="add-bank-account"><Plus className="h-4 w-4" /> Add account</Button> : null}
+      />
+      {adding ? (
+        <CardBody className="grid gap-3 border-b border-border sm:grid-cols-2">
+          <Field label="Name for this account"><Input value={form.nickname} onChange={set("nickname")} placeholder="Operating account" data-testid="bank-nickname" /></Field>
+          <Field label="Account holder"><Input value={form.holderName} onChange={set("holderName")} placeholder="Harbor & Pine Manufacturing Inc." data-testid="bank-holder" /></Field>
+          <Field label="Bank"><Input value={form.bankName} onChange={set("bankName")} placeholder="Pacific Commerce Bank" data-testid="bank-name" /></Field>
+          <Field label="Routing number" hint="9 digits (ABA)"><Input inputMode="numeric" value={form.routingNumber} onChange={set("routingNumber")} placeholder="021000021" data-testid="bank-routing" /></Field>
+          <Field label="Account number"><Input inputMode="numeric" autoComplete="off" value={form.accountNumber} onChange={set("accountNumber")} data-testid="bank-account" /></Field>
+          <label className="flex items-center gap-2 self-end pb-2 text-sm"><input type="checkbox" checked={form.isDefault} onChange={(e) => setForm({ ...form, isDefault: e.target.checked })} /> Use as the default for payments</label>
+          {error ? <Alert tone="bad" className="sm:col-span-2">{error}</Alert> : null}
+          <div className="flex gap-2 sm:col-span-2"><Button onClick={add} data-testid="bank-save">Save account</Button><Button variant="ghost" onClick={() => setAdding(false)}>Cancel</Button></div>
+        </CardBody>
+      ) : null}
+      <Table>
+        <thead><tr><Th>Account</Th><Th>Bank</Th><Th>Routing</Th><Th>Number</Th><Th>Currency</Th><Th>Added</Th><Th /></tr></thead>
+        <tbody>
+          {data.bankAccounts.map((a: any) => (
+            <tr key={a.id} className={a.state === "archived" ? "opacity-60" : ""}>
+              <Td><span className="font-medium">{a.nickname}</span> {a.isDefault ? <Badge tone="brand">Default</Badge> : null} {a.state === "archived" ? <Badge>Archived</Badge> : null}<div className="text-xs text-muted">{a.holderName}</div></Td>
+              <Td>{a.bankName}</Td>
+              <Td className="tabular">{a.routingNumber}</Td>
+              <Td className="tabular">••••{a.accountLast4}</Td>
+              <Td>{a.currency}</Td>
+              <Td className="text-muted">{formatDate(a.createdAt)}</Td>
+              <Td className="space-x-1 text-right">
+                {canEdit && a.state === "active" && !a.isDefault ? <Button size="sm" variant="ghost" onClick={() => change(a, { isDefault: true }, `Why make ${a.nickname} the default?`)}>Make default</Button> : null}
+                {canEdit && !a.isDefault ? <Button size="sm" variant="ghost" onClick={() => change(a, { archived: a.state === "active" }, a.state === "active" ? `Why archive ${a.nickname}?` : `Why restore ${a.nickname}?`)}>{a.state === "active" ? "Archive" : "Restore"}</Button> : null}
+              </Td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
     </Card>
   );
 }

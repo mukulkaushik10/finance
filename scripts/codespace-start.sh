@@ -65,15 +65,20 @@ if [ ! -d node_modules/@prisma/client ] || [ package-lock.json -nt node_modules/
 fi
 npx prisma generate >/dev/null
 
-# Load demo data if the database has none (checks the database itself, not a marker file).
-has_demo_data() {
+# Load demo data if the database has none, or if it predates the supplier portal.
+# (Checks the database itself, not a marker file.)
+demo_state() {
   node -e "
 const { PrismaClient } = require('@prisma/client');
 const p = new PrismaClient();
-p.user.count().then(n => process.exit(n > 0 ? 0 : 1)).catch(() => process.exit(1)).finally(() => p.\$disconnect());
+Promise.all([p.user.count(), p.vendorUser.count()])
+  .then(([u, v]) => { console.log(u === 0 ? 'empty' : v === 0 ? 'old' : 'ok'); })
+  .catch(() => console.log('empty'))
+  .finally(() => p.\$disconnect());
 " 2>/dev/null
 }
-if ! has_demo_data; then
+STATE="$(demo_state)"
+if [ "$STATE" = "empty" ]; then
   say "Loading demo data (about 30 seconds)"
   node -e "
 const { PrismaClient } = require('@prisma/client');
@@ -81,8 +86,13 @@ const p = new PrismaClient();
 p.\$executeRawUnsafe('CREATE DATABASE controlroom_test').catch(() => {}).finally(() => p.\$disconnect());
 "
   npm run setup
-  has_demo_data || fail "Demo data did not load. Scroll up in this terminal for the error."
+elif [ "$STATE" = "old" ]; then
+  say "Updating the database and reloading demo data for the supplier portal (about 30 seconds)"
+  npm run setup
+else
+  npx prisma migrate deploy >/dev/null
 fi
+[ "$(demo_state)" = "ok" ] || fail "Demo data did not load. Scroll up in this terminal for the error."
 
 if [ -n "${CODESPACE_NAME:-}" ]; then
   URL="https://${CODESPACE_NAME}-3000.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-app.github.dev}"
@@ -112,6 +122,7 @@ printf "\n\033[1;32m============================================================
 printf "\033[1;32m  Control Room is READY. Open this link in your browser:\033[0m\n\n"
 printf "    \033[1;4m%s\033[0m\n\n" "$URL"
 printf "  Sign in: click \"Dana Whitfield, Controller\" (password demo1234)\n"
+printf "  Supplier portal: %s/portal/login (click \"Priya Raman\")\n" "$URL"
 printf "  Keep this terminal open while you use the app.\n"
 printf "\033[1;32m============================================================\033[0m\n\n"
 
