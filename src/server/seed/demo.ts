@@ -33,6 +33,8 @@ export const DEMO = {
 };
 
 const TABLES = [
+  "InvoiceMessage", "InvoiceEvent", "InvoiceLine", "Invoice", "BankDetailChange", "VendorConnection",
+  "VendorBankAccount", "VendorUser", "VendorAccount", "OrganisationBankAccount",
   "AuditRecord", "ReplayResult", "ReplayRun", "ReplayComparison", "ReplayCase", "ReplayDataset", "Review", "RuleResult",
   "Action", "RuleVersion", "Rule", "AutonomyChange", "Workflow", "Agent", "GoodsReceipt", "PurchaseOrder", "Vendor",
   "StoredFile", "User", "Organisation",
@@ -70,7 +72,8 @@ export async function seedBase(opts: { csvDir?: string; level?: number } = {}): 
     start: new Date(DEMO.replay.start + "T00:00:00Z"), end: new Date(DEMO.replay.end + "T00:00:00Z"),
     idPrefix: "INV", poStart: 40000, includeBankFingerprint: false,
   });
-  await insertPoGrn(orgId, replay.pos, replay.grns);
+  // The replay set is past invoices, so their purchase orders are already billed and closed.
+  await insertPoGrn(orgId, replay.pos.map((p) => ({ ...p, closedAt: new Date(DEMO.replay.end + "T00:00:00Z") })), replay.grns);
 
   for (const a of Object.values(DEMO.agents)) {
     await db.agent.create({
@@ -109,7 +112,7 @@ export async function seedBase(opts: { csvDir?: string; level?: number } = {}): 
   };
 }
 
-export async function insertPoGrn(orgId: string, pos: GenPO[], grns: GenGRN[]) {
+export async function insertPoGrn(orgId: string, pos: (GenPO & { closedAt?: Date })[], grns: GenGRN[]) {
   const db = forOrg(orgId);
   for (let i = 0; i < pos.length; i += 1000) {
     await db.purchaseOrder.createMany({ data: pos.slice(i, i + 1000).map((p) => ({ organisationId: orgId, ...p })) });

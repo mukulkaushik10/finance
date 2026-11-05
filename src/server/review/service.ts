@@ -8,6 +8,7 @@ import { appendAudit } from "../audit/chain";
 import { getErpConnector } from "../connectors/erp";
 import { enqueue, QUEUES } from "../jobs/queue";
 import { isControlFailure } from "../rules/routing";
+import { syncInvoiceForAction } from "../portal/sync";
 
 export const ReviewSchema = z.object({
   decision: z.enum(["approve", "reject"]),
@@ -20,6 +21,8 @@ export interface ReviewOptions {
   now?: Date;
   /** Seed/tests: skip the background callback to the agent. */
   skipCallback?: boolean;
+  /** The supplier-invoice screen sets the invoice status itself. */
+  skipInvoiceSync?: boolean;
 }
 
 /**
@@ -93,6 +96,7 @@ export async function reviewAction(ctx: Ctx, actionId: string, input: unknown, o
     return { review, audit, callback: Boolean(!spotCheck) };
   });
 
+  if (!opts.skipInvoiceSync) await syncInvoiceForAction(ctx.organisationId, actionId, { now });
   if (result.callback && !opts.skipCallback) {
     const agent = await db.action.findFirst({ where: { id: actionId }, select: { agent: { select: { callbackUrl: true } } } });
     if (agent?.agent.callbackUrl) await enqueue(QUEUES.reviewCallback, { organisationId: ctx.organisationId, actionId }).catch((e) => console.error(e));

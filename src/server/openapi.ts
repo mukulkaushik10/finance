@@ -12,6 +12,12 @@ import { ScorecardQuerySchema } from "./scorecard/service";
 import { ConnectorSchema, CreateAgentSchema, CreateUserSchema, UpdateAgentSchema, UpdateUserSchema, UpdateVendorSchema } from "./settings/service";
 import { AgentAnswerSchema } from "./agents/webhook";
 import { InvoiceSubjectSchema } from "./workflows/ap_invoice/subject";
+import { AddBankAccountSchema, UpdateBankAccountSchema } from "./banking/service";
+import { DecideBankChangeSchema, InviteSchema } from "./portal/suppliers";
+import { DecideInvoiceSchema, MarkPaidSchema, SchedulePaymentSchema } from "./portal/buyer-invoices";
+import { AcceptInviteSchema, VendorLoginSchema } from "./portal/auth";
+import { RequestBankChangeSchema, UpdateProfileSchema } from "./portal/profile";
+import { DraftSchema } from "./portal/invoices";
 
 extendZodWithOpenApi(z);
 
@@ -23,7 +29,7 @@ const Any = (description: string) => z.object({}).passthrough().describe(descrip
 type Method = "get" | "post" | "put" | "patch" | "delete";
 interface Op {
   method: Method; path: string; tag: string; summary: string; description?: string;
-  auth: "agent" | "session" | "signature" | "none";
+  auth: "agent" | "session" | "signature" | "supplier" | "none";
   body?: z.ZodTypeAny; bodyType?: "json" | "multipart"; query?: z.AnyZodObject; params?: string[];
   ok: { status: number; schema?: z.ZodTypeAny; description: string; contentType?: string };
   errors?: number[];
@@ -91,6 +97,44 @@ const ops: Op[] = [
   { method: "get", path: "/api/users", tag: "Settings", auth: "session", summary: "List users", ok: { status: 200, schema: Any("{ users }"), description: "Users" }, errors: [401, 403] },
   { method: "post", path: "/api/users", tag: "Settings", auth: "session", summary: "Add a user", body: CreateUserSchema, ok: { status: 201, schema: Any("{ user }"), description: "Created" }, errors: [401, 403, 409, 422] },
   { method: "patch", path: "/api/users/{id}", tag: "Settings", auth: "session", params: ["id"], summary: "Change a user's role or disable them", body: UpdateUserSchema, ok: { status: 200, schema: Any("{ user }"), description: "Updated" }, errors: [400, 401, 403, 404, 422] },
+  // ---- Payments & suppliers (buyer side)
+  { method: "get", path: "/api/bank-accounts", tag: "Payments & suppliers", auth: "session", summary: "Your organisation's bank accounts (last four digits only)", query: z.object({ archived: z.enum(["1"]).optional() }), ok: { status: 200, schema: Any("{ accounts }"), description: "Accounts" }, errors: [401, 403] },
+  { method: "post", path: "/api/bank-accounts", tag: "Payments & suppliers", auth: "session", summary: "Add a bank account to pay suppliers from (admin; stored encrypted)", body: AddBankAccountSchema, ok: { status: 201, schema: Any("{ account }"), description: "Added" }, errors: [401, 403, 409, 422] },
+  { method: "patch", path: "/api/bank-accounts/{id}", tag: "Payments & suppliers", auth: "session", params: ["id"], summary: "Rename, make default or archive an account", body: UpdateBankAccountSchema, ok: { status: 200, schema: Any("{ account }"), description: "Updated" }, errors: [400, 401, 403, 404, 409, 422] },
+  { method: "get", path: "/api/suppliers", tag: "Payments & suppliers", auth: "session", summary: "Suppliers invited to or using the supplier portal", ok: { status: 200, schema: Any("{ suppliers }"), description: "Suppliers" }, errors: [401, 403] },
+  { method: "post", path: "/api/suppliers/invite", tag: "Payments & suppliers", auth: "session", summary: "Invite a vendor to the supplier portal (link returned once)", body: InviteSchema, ok: { status: 201, schema: Any("{ connectionId, vendor, email, inviteUrl, expiresAt }"), description: "Invited" }, errors: [400, 401, 403, 404, 409, 422] },
+  { method: "patch", path: "/api/suppliers/{id}", tag: "Payments & suppliers", auth: "session", params: ["id"], summary: "Suspend or restore a supplier's portal access", body: z.object({ suspended: z.boolean(), reason: z.string() }), ok: { status: 200, schema: Any("{ id, status }"), description: "Updated" }, errors: [400, 401, 403, 404, 422] },
+  { method: "get", path: "/api/bank-changes", tag: "Payments & suppliers", auth: "session", summary: "Supplier requests to change bank details", query: z.object({ status: z.enum(["pending", "all"]).optional() }), ok: { status: 200, schema: Any("{ changes }"), description: "Requests" }, errors: [401, 403] },
+  { method: "post", path: "/api/bank-changes/{id}/decision", tag: "Payments & suppliers", auth: "session", params: ["id"], summary: "Approve (with how you verified it) or reject a bank detail change", body: DecideBankChangeSchema, ok: { status: 200, schema: Any("{ id, status }"), description: "Decided" }, errors: [401, 403, 404, 409, 422] },
+  { method: "get", path: "/api/supplier-invoices", tag: "Payments & suppliers", auth: "session", summary: "Invoices sent through the supplier portal", query: z.object({ status: z.string().optional(), q: z.string().optional() }), ok: { status: 200, schema: Any("{ invoices }"), description: "Invoices" }, errors: [401, 403] },
+  { method: "get", path: "/api/supplier-invoices/{id}", tag: "Payments & suppliers", auth: "session", params: ["id"], summary: "Invoice with lines, timeline, messages and the AI check", ok: { status: 200, schema: Any("{ invoice }"), description: "Invoice" }, errors: [401, 403, 404] },
+  { method: "post", path: "/api/supplier-invoices/{id}/decision", tag: "Payments & suppliers", auth: "session", params: ["id"], summary: "Approve, send back for changes, or reject", body: DecideInvoiceSchema, ok: { status: 200, schema: Any("{ status }"), description: "Decided" }, errors: [400, 401, 403, 404, 409, 422] },
+  { method: "post", path: "/api/supplier-invoices/{id}/schedule", tag: "Payments & suppliers", auth: "session", params: ["id"], summary: "Schedule payment from one of your bank accounts", body: SchedulePaymentSchema, ok: { status: 200, schema: Any("{ status, scheduledFor }"), description: "Scheduled" }, errors: [400, 401, 403, 404, 409, 422] },
+  { method: "post", path: "/api/supplier-invoices/{id}/paid", tag: "Payments & suppliers", auth: "session", params: ["id"], summary: "Record that a scheduled payment was made", body: MarkPaidSchema, ok: { status: 200, schema: Any("{ status }"), description: "Recorded" }, errors: [401, 403, 404, 409, 422] },
+  { method: "post", path: "/api/supplier-invoices/{id}/messages", tag: "Payments & suppliers", auth: "session", params: ["id"], summary: "Message the supplier about an invoice", body: z.object({ body: z.string() }), ok: { status: 201, schema: Any("{ message }"), description: "Sent" }, errors: [401, 403, 404, 422] },
+  { method: "get", path: "/api/supplier-invoices/{id}/pdf", tag: "Payments & suppliers", auth: "session", params: ["id"], summary: "Invoice PDF", ok: { status: 200, description: "PDF", contentType: "application/pdf" }, errors: [401, 403, 404] },
+  // ---- Supplier portal
+  { method: "post", path: "/api/portal/auth/login", tag: "Supplier portal", auth: "none", summary: "Supplier sign-in", body: VendorLoginSchema, ok: { status: 200, schema: Any("Sets the cr_supplier_session cookie"), description: "Signed in" }, errors: [401, 422] },
+  { method: "post", path: "/api/portal/auth/logout", tag: "Supplier portal", auth: "none", summary: "Supplier sign-out", ok: { status: 200, description: "Cookie cleared" } },
+  { method: "get", path: "/api/portal/invites/{token}", tag: "Supplier portal", auth: "none", params: ["token"], summary: "Who sent this invitation", ok: { status: 200, schema: Any("{ invite: { buyerName, supplierName, email, hasAccount, paymentTermsDays } }"), description: "Invitation" }, errors: [400, 404] },
+  { method: "post", path: "/api/portal/invites/{token}/accept", tag: "Supplier portal", auth: "none", params: ["token"], summary: "Accept: create a supplier account, or send { existing: true } while signed in", body: AcceptInviteSchema, ok: { status: 201, schema: Any("{ accountId } and a session cookie"), description: "Accepted" }, errors: [400, 401, 404, 409, 422] },
+  { method: "get", path: "/api/portal/home", tag: "Supplier portal", auth: "supplier", summary: "What you're owed, paid, overdue and what needs attention", ok: { status: 200, schema: Any("{ outstandingMinor, paid90Minor, avgDaysToPay, attention, ... }"), description: "Summary" }, errors: [401] },
+  { method: "get", path: "/api/portal/profile", tag: "Supplier portal", auth: "supplier", summary: "Your company details", ok: { status: 200, schema: Any("{ profile }"), description: "Profile" }, errors: [401] },
+  { method: "patch", path: "/api/portal/profile", tag: "Supplier portal", auth: "supplier", summary: "Update company details (owner)", body: UpdateProfileSchema, ok: { status: 200, schema: Any("{ profile }"), description: "Updated" }, errors: [401, 403, 422] },
+  { method: "get", path: "/api/portal/buyers", tag: "Supplier portal", auth: "supplier", summary: "Buyers you're connected to", ok: { status: 200, schema: Any("{ buyers }"), description: "Buyers" }, errors: [401] },
+  { method: "get", path: "/api/portal/buyers/{id}/purchase-orders", tag: "Supplier portal", auth: "supplier", params: ["id"], summary: "A buyer's open purchase orders with you", ok: { status: 200, schema: Any("{ purchaseOrders }"), description: "POs" }, errors: [401, 403, 404] },
+  { method: "get", path: "/api/portal/buyers/{id}/purchase-orders/{po}/draft", tag: "Supplier portal", auth: "supplier", params: ["id", "po"], summary: "Suggested invoice for what's been delivered on a PO", ok: { status: 200, schema: Any("{ draft }"), description: "Suggestion" }, errors: [401, 403, 404] },
+  { method: "get", path: "/api/portal/bank-accounts", tag: "Supplier portal", auth: "supplier", summary: "Your bank accounts (last four digits only)", ok: { status: 200, schema: Any("{ accounts }"), description: "Accounts" }, errors: [401] },
+  { method: "post", path: "/api/portal/bank-accounts", tag: "Supplier portal", auth: "supplier", summary: "Ask buyers to pay into a new account (password required; each buyer approves)", body: RequestBankChangeSchema, ok: { status: 201, schema: Any("{ bankAccount, requested, unchanged }"), description: "Requested" }, errors: [400, 401, 403, 422] },
+  { method: "get", path: "/api/portal/invoices", tag: "Supplier portal", auth: "supplier", summary: "Your invoices and credit notes", query: z.object({ status: z.string().optional(), buyer: z.string().optional() }), ok: { status: 200, schema: Any("{ invoices }"), description: "Invoices" }, errors: [401] },
+  { method: "post", path: "/api/portal/invoices", tag: "Supplier portal", auth: "supplier", summary: "Save a draft invoice or credit note", body: DraftSchema, ok: { status: 201, schema: Any("{ invoice }"), description: "Saved" }, errors: [400, 401, 403, 404, 409, 422] },
+  { method: "get", path: "/api/portal/invoices/{id}", tag: "Supplier portal", auth: "supplier", params: ["id"], summary: "Invoice with its status timeline and messages", ok: { status: 200, schema: Any("{ invoice }"), description: "Invoice" }, errors: [401, 404] },
+  { method: "patch", path: "/api/portal/invoices/{id}", tag: "Supplier portal", auth: "supplier", params: ["id"], summary: "Edit a draft or an invoice sent back for changes", body: DraftSchema, ok: { status: 200, schema: Any("{ invoice }"), description: "Saved" }, errors: [400, 401, 404, 409, 422] },
+  { method: "delete", path: "/api/portal/invoices/{id}", tag: "Supplier portal", auth: "supplier", params: ["id"], summary: "Delete a draft, or cancel an invoice sent back for changes", ok: { status: 200, schema: Any("{ deleted }"), description: "Done" }, errors: [401, 404, 409] },
+  { method: "get", path: "/api/portal/invoices/{id}/checks", tag: "Supplier portal", auth: "supplier", params: ["id"], summary: "Checks before sending (errors and warnings)", ok: { status: 200, schema: Any("{ checks: [{ level, message }] }"), description: "Checks" }, errors: [401, 404] },
+  { method: "post", path: "/api/portal/invoices/{id}/submit", tag: "Supplier portal", auth: "supplier", params: ["id"], summary: "Send the invoice to the buyer", ok: { status: 200, schema: Any("{ invoice, checks, processing }"), description: "Sent" }, errors: [400, 401, 403, 404, 409] },
+  { method: "post", path: "/api/portal/invoices/{id}/messages", tag: "Supplier portal", auth: "supplier", params: ["id"], summary: "Message the buyer about an invoice", body: z.object({ body: z.string() }), ok: { status: 201, schema: Any("{ message }"), description: "Sent" }, errors: [400, 401, 404, 422] },
+  { method: "get", path: "/api/portal/invoices/{id}/pdf", tag: "Supplier portal", auth: "supplier", params: ["id"], summary: "Invoice PDF", ok: { status: 200, description: "PDF", contentType: "application/pdf" }, errors: [401, 404] },
   { method: "get", path: "/api/openapi.json", tag: "Docs", auth: "none", summary: "This document", ok: { status: 200, schema: Any("OpenAPI 3 document"), description: "OpenAPI" } },
 ];
 
@@ -109,6 +153,7 @@ export function buildOpenApi() {
   registry.register("Error", ErrorSchema);
   registry.registerComponent("securitySchemes", "agentKey", { type: "http", scheme: "bearer", description: "Agent API key (cr_live_…), from Settings → Agents" });
   registry.registerComponent("securitySchemes", "session", { type: "apiKey", in: "cookie", name: "cr_session", description: "Signed-in user session" });
+  registry.registerComponent("securitySchemes", "supplierSession", { type: "apiKey", in: "cookie", name: "cr_supplier_session", description: "Signed-in supplier (portal) session" });
   registry.registerComponent("securitySchemes", "webhookSignature", { type: "apiKey", in: "header", name: "X-ControlRoom-Signature", description: "sha256=<HMAC of `<timestamp>.<body>`> with the agent's signing secret; plus X-ControlRoom-Timestamp" });
   registry.register("EvaluateRequest", EvaluateRequestSchema);
   registry.register("EvaluateResponse", EvaluateResponseSchema);
@@ -127,7 +172,7 @@ export function buildOpenApi() {
       tags: [o.tag],
       summary: o.summary,
       description: o.description,
-      security: o.auth === "agent" ? [{ agentKey: [] }] : o.auth === "session" ? [{ session: [] }] : o.auth === "signature" ? [{ webhookSignature: [] }] : [],
+      security: o.auth === "agent" ? [{ agentKey: [] }] : o.auth === "session" ? [{ session: [] }] : o.auth === "signature" ? [{ webhookSignature: [] }] : o.auth === "supplier" ? [{ supplierSession: [] }] : [],
       request: {
         ...(o.params ? { params: z.object(Object.fromEntries(o.params.map((p) => [p, z.string()]))) } : {}),
         ...(o.query ? { query: o.query } : {}),
@@ -145,7 +190,7 @@ export function buildOpenApi() {
       description: "Independent assurance for AI agents that act on money. Agents call the Agent API before acting; the rest of the API backs the Control Room app. Money is always integer minor units (cents) plus an ISO currency code.",
     },
     servers: [{ url: process.env.APP_URL ?? "http://localhost:3000" }],
-    tags: ["Agent API", "Actions & review", "Rules", "Autonomy", "Replay testing", "Audit", "Scorecard", "Settings", "Session", "Docs"].map((name) => ({ name })),
+    tags: ["Agent API", "Actions & review", "Rules", "Autonomy", "Replay testing", "Audit", "Scorecard", "Settings", "Payments & suppliers", "Supplier portal", "Session", "Docs"].map((name) => ({ name })),
   });
   return cached;
 }
