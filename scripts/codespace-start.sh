@@ -65,7 +65,15 @@ if [ ! -d node_modules/@prisma/client ] || [ package-lock.json -nt node_modules/
 fi
 npx prisma generate >/dev/null
 
-if [ ! -f storage/.seeded ]; then
+# Load demo data if the database has none (checks the database itself, not a marker file).
+has_demo_data() {
+  node -e "
+const { PrismaClient } = require('@prisma/client');
+const p = new PrismaClient();
+p.user.count().then(n => process.exit(n > 0 ? 0 : 1)).catch(() => process.exit(1)).finally(() => p.\$disconnect());
+" 2>/dev/null
+}
+if ! has_demo_data; then
   say "Loading demo data (about 30 seconds)"
   node -e "
 const { PrismaClient } = require('@prisma/client');
@@ -73,7 +81,7 @@ const p = new PrismaClient();
 p.\$executeRawUnsafe('CREATE DATABASE controlroom_test').catch(() => {}).finally(() => p.\$disconnect());
 "
   npm run setup
-  mkdir -p storage && touch storage/.seeded
+  has_demo_data || fail "Demo data did not load. Scroll up in this terminal for the error."
 fi
 
 if [ -n "${CODESPACE_NAME:-}" ]; then

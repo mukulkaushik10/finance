@@ -30,6 +30,24 @@ export function errorResponse(e: unknown): Response {
   if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025") {
     return json({ error: { code: "not_found", message: "Record not found" } }, 404);
   }
+  if (e instanceof Prisma.PrismaClientInitializationError) {
+    console.error(e);
+    return json({
+      error: {
+        code: "database_unavailable",
+        message: "The database isn't running. In a terminal, run: bash scripts/codespace-start.sh",
+      },
+    }, 503);
+  }
+  if (e instanceof Prisma.PrismaClientKnownRequestError && (e.code === "P2021" || e.code === "P2022")) {
+    console.error(e);
+    return json({
+      error: {
+        code: "database_not_set_up",
+        message: "The database has no tables or demo data yet. In a terminal, run: npm run setup",
+      },
+    }, 503);
+  }
   console.error(e);
   return json({ error: { code: "internal_error", message: "Something went wrong" } }, 500);
 }
