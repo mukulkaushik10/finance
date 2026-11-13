@@ -110,6 +110,18 @@ Fast-Pay AI             cr_demo_fastpay_00000000000000000000000
 - Bank account numbers (buyer and supplier) are AES-256-GCM encrypted (`BANK_ENCRYPTION_KEY`, falling back to a key derived from `SESSION_SECRET` in development); only the last four digits and a keyed fingerprint are used elsewhere.
 - Not built yet: moving money (payments are scheduled and recorded, not sent), email delivery (`src/server/portal/notify.ts` logs instead), e-invoicing networks, tax calculation.
 
+## Browser build (shareable, no server)
+
+`npm run build:artifact` writes `docs/control-room-prototype.html`: the real app (both sides) running entirely in the browser. It bundles the app's own pages, components, API route handlers and services from `src/`, with stand-ins in `browser/shims/` for what a browser lacks:
+
+- **Database:** an in-memory implementation of the Prisma calls the services use, driven by the schema, so relations, defaults and unique constraints match.
+- **Data:** the real seed scripts are run once at build time and embedded.
+- **Requests:** `fetch("/api/...")` is routed to the real route handlers; sessions use the same cookies and tokens.
+- **Background jobs:** replays and callbacks run in the page instead of the worker.
+- **Styling:** the app's real Tailwind build.
+
+Changes are saved in the viewer's browser (IndexedDB); "Reset demo data" in the address bar menu starts over. Differences from the hosted app: no real AI agents or email, and password hashing and bank-number encryption use browser-friendly equivalents.
+
 ## Tests
 
 ```bash

@@ -7,3 +7,7 @@ playwright-report
 *.tsbuildinfo
 next-env.d.ts
 .env
+
+# Browser build (npm run build:artifact)
+browser/generated/
+docs/control-room-prototype.html

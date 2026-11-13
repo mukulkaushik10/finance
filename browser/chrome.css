@@ -1,0 +1,35 @@
+/* The thin browser frame around the app (address bar, dialogs, file viewer). Not part of the app's own design. */
+.cr-bar { position: sticky; top: 0; z-index: 50; height: 44px; display: flex; align-items: center; gap: 6px; padding: 0 max(10px, env(safe-area-inset-right, 0px)) 0 max(10px, env(safe-area-inset-left, 0px)); background: #dfe3e8; border-bottom: 1px solid #c4cad3; font: 13px/1.2 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color: #1f2937; }
+.cr-nav { width: 28px; height: 28px; border-radius: 50%; border: 0; background: transparent; font-size: 18px; line-height: 1; color: #374151; cursor: pointer; }
+.cr-nav:hover:not(:disabled) { background: #cbd2da; } .cr-nav:disabled { opacity: .35; cursor: default; }
+.cr-url { flex: 1; min-width: 0; display: flex; align-items: center; height: 30px; background: #fff; border-radius: 15px; padding: 0 12px; gap: 2px; border: 1px solid transparent; }
+.cr-url:focus-within { border-color: #1f4fd1; }
+.cr-host { color: #6b7280; white-space: nowrap; }
+.cr-url input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font: inherit; color: #111827; }
+.cr-links { display: flex; gap: 2px; align-items: center; }
+.cr-links > button, .cr-more > button { border: 0; background: transparent; padding: 6px 9px; border-radius: 6px; font: inherit; color: #374151; cursor: pointer; white-space: nowrap; }
+.cr-links > button:hover, .cr-more > button:hover { background: #cbd2da; }
+.cr-more { position: relative; }
+.cr-menu { position: absolute; right: 0; top: 34px; width: 270px; background: #fff; border: 1px solid #d1d5db; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.15); padding: 10px; display: grid; gap: 8px; }
+.cr-menu-note { color: #6b7280; font-size: 12px; line-height: 1.45; }
+.cr-menu button { border: 1px solid #cdd2da; background: #fff; border-radius: 7px; padding: 7px 10px; font: inherit; cursor: pointer; text-align: left; }
+.cr-menu button:hover { background: #f1f3f6; }
+@media (max-width: 760px) { .cr-links > button { display: none; } .cr-host { display: none; } }
+.cr-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(15, 23, 42, .45); display: grid; place-items: center; padding: 16px; }
+.cr-dialog { width: min(440px, 100%); background: #fff; color: #111827; border-radius: 12px; padding: 18px 20px; box-shadow: 0 20px 50px rgba(0,0,0,.25); font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; display: grid; gap: 12px; }
+.cr-dialog-host { font-weight: 600; } .cr-dialog-msg { white-space: pre-wrap; }
+.cr-dialog-input { border: 1px solid #cdd2da; border-radius: 7px; padding: 7px 10px; font: inherit; }
+.cr-dialog-btns { display: flex; justify-content: flex-end; gap: 8px; }
+.cr-btn { border: 1px solid #cdd2da; background: #fff; border-radius: 7px; padding: 7px 14px; font: 500 13px ui-sans-serif, system-ui, sans-serif; cursor: pointer; color: #111827; }
+.cr-btn-primary { background: #1f4fd1; border-color: #1f4fd1; color: #fff; }
+.cr-viewer { width: min(1000px, 100%); height: min(86vh, 900px); background: #fff; color: #111827; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; font: 13px ui-sans-serif, system-ui, sans-serif; }
+.cr-viewer-head { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid #e5e7eb; }
+.cr-viewer-title { font-weight: 600; } .cr-viewer-note { color: #6b7280; font-size: 12px; margin-right: auto; }
+.cr-viewer-frame { flex: 1; width: 100%; height: 100%; border: 0; }
+.cr-viewer-pre, .cr-zip-body pre { margin: 0; padding: 14px; overflow: auto; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; flex: 1; }
+.cr-zip { flex: 1; display: grid; grid-template-columns: 240px minmax(0, 1fr); min-height: 0; }
+.cr-zip-list { border-right: 1px solid #e5e7eb; overflow: auto; padding: 6px; display: grid; align-content: start; gap: 2px; }
+.cr-zip-list button { display: flex; justify-content: space-between; gap: 8px; border: 0; background: transparent; padding: 7px 9px; border-radius: 6px; cursor: pointer; font: inherit; text-align: left; }
+.cr-zip-list button.on { background: #e8eefc; color: #1f4fd1; } .cr-zip-size { color: #6b7280; font-size: 11px; }
+.cr-zip-body { min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+@media (max-width: 640px) { .cr-zip { grid-template-columns: 1fr; grid-template-rows: auto 1fr; } .cr-zip-list { border-right: 0; border-bottom: 1px solid #e5e7eb; max-height: 140px; } }

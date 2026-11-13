@@ -27,7 +27,7 @@ const RAW_CLIENT_ALLOWED = [
 ];
 
 export default [
-  { ignores: [".next/**", "node_modules/**", "storage/**", "next-env.d.ts"] },
+  { ignores: [".next/**", "node_modules/**", "storage/**", "next-env.d.ts", "browser/**"] },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
     rules: {
