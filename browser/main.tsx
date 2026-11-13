@@ -1,7 +1,7 @@
 import * as React from "react";
 import { createRoot } from "react-dom/client";
 import JSZip from "jszip";
-import { rt } from "./runtime/core";
+import { rt, START } from "./runtime/core";
 import { pages, apis } from "./generated/routes";
 import { loadStore, onChange, dumpStore, store } from "./shims/prisma";
 import { files } from "./shims/fs";
@@ -39,7 +39,7 @@ function scheduleSave() {
     } catch { /* storage full or blocked: the session still works, it just won't survive a reload */ }
   }, 600);
 }
-function resetData() { idbDel(SAVE_KEY); rt.cookies.clear(); loadStore(SNAP.db); files.clear(); for (const [k, v] of Object.entries(SNAP.files as Record<string, string>)) files.set(k, Uint8Array.from(atob(v), (c) => c.charCodeAt(0))); rt.history = ["/login"]; rt.index = 0; rt.navigate("/login", { replace: true }); }
+function resetData() { idbDel(SAVE_KEY); rt.cookies.clear(); loadStore(SNAP.db); files.clear(); for (const [k, v] of Object.entries(SNAP.files as Record<string, string>)) files.set(k, Uint8Array.from(atob(v), (c) => c.charCodeAt(0))); rt.history = [START]; rt.index = 0; rt.navigate(START, { replace: true }); }
 
 /* ------------------------------------------------------------ requests */
 rt.apis = apis as any;

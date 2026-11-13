@@ -88,11 +88,13 @@ const swCss = readFileSync(path.join(sw, "swagger-ui.css"), "utf8");
 const swJs = readFileSync(path.join(sw, "swagger-ui-bundle.js"), "utf8");
 
 const snapshot = readFileSync(path.join(gen, "snapshot.json"), "utf8");
-let html = `<title>Control Room</title>
+const START = process.env.START_PATH ?? "/login";
+const TITLE = process.env.TITLE ?? "Control Room";
+let html = `<title>${TITLE}</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>${css}</style>
 <style>${readFileSync(B("chrome.css"), "utf8")}</style>
-<div id="cr-root"></div>
+<div id="cr-root" data-start="${START}"></div>
 <script type="application/json" id="cr-snapshot">${snapshot.replace(/</g, "\\u003c")}</script>
 <script type="text/plain" id="cr-swagger-css">${swCss.replace(/<\/(script)/gi, "<\\/$1")}</script>
 <script type="text/plain" id="cr-swagger-js">${swJs.replace(/<\/(script)/gi, "<\\/$1")}</script>

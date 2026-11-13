@@ -3,11 +3,13 @@
 type Listener = () => void;
 export interface ApiRoute { re: RegExp; keys: string[]; mod: Record<string, any>; path: string }
 
+// Where this copy opens: the staff sign-in, or the supplier portal sign-in for the supplier link.
+export const START = (typeof document !== "undefined" && document.getElementById("cr-root")?.dataset.start) || "/login";
 export const rt = {
-  url: new URL("http://controlroom.local/login"),
+  url: new URL("http://controlroom.local" + START),
   params: {} as Record<string, string>,
   cookies: new Map<string, string>(),
-  history: ["/login"] as string[],
+  history: [START] as string[],
   index: 0,
   listeners: new Set<Listener>(),
   apis: [] as ApiRoute[],

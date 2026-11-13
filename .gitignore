@@ -11,3 +11,4 @@ next-env.d.ts
 # Browser build (npm run build:artifact)
 browser/generated/
 docs/control-room-prototype.html
+docs/supplier-portal-prototype.html

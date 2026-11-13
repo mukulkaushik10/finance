@@ -18,7 +18,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
-    "build:artifact": "node browser/build.mjs"
+    "build:artifact": "node browser/build.mjs && OUT=docs/supplier-portal-prototype.html START_PATH=/portal/login TITLE=\"Supplier Portal\" node browser/build.mjs"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^7.3.4",
