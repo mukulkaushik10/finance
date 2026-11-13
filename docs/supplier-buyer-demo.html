@@ -1,0 +1,654 @@
+<title>Control Room Supplier Demo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: two live app windows side by side (supplier left, buyer right) sharing one in-page state; tabs on phones. */
+:root {
+  --bg: #eef1f5; --surface: #ffffff; --surface-2: #f1f3f6; --border: #e2e5ea; --border-strong: #cdd2da;
+  --ink: #111827; --ink-2: #374151; --muted: #6b7280;
+  --brand: #1f4fd1; --brand-ink: #ffffff; --brand-soft: #e8eefc;
+  --supplier: #0f766e; --supplier-soft: #e0f2ef;
+  --good: #12805c; --good-soft: #e3f4ec; --warn: #a35c00; --warn-soft: #fdf1dc;
+  --bad: #c0352b; --bad-soft: #fbe7e5; --info: #2563a8; --info-soft: #e4effa; --neutral-soft: #eef0f3;
+  --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0d1117; --surface: #161b22; --surface-2: #1d232c; --border: #2a313c; --border-strong: #3a4250;
+  --ink: #e6e9ee; --ink-2: #c4cad4; --muted: #8b95a5;
+  --brand: #6f93ff; --brand-ink: #0d1117; --brand-soft: #1c2a4d; --supplier: #3cc4b4; --supplier-soft: #12312e;
+  --good: #4cc38a; --good-soft: #143326; --warn: #e3a54a; --warn-soft: #3a2a12; --bad: #f07267; --bad-soft: #3d1a17;
+  --info: #6aa8ec; --info-soft: #172a40; --neutral-soft: #222a35; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0d1117; --surface: #161b22; --surface-2: #1d232c; --border: #2a313c; --border-strong: #3a4250;
+  --ink: #e6e9ee; --ink-2: #c4cad4; --muted: #8b95a5;
+  --brand: #6f93ff; --brand-ink: #0d1117; --brand-soft: #1c2a4d; --supplier: #3cc4b4; --supplier-soft: #12312e;
+  --good: #4cc38a; --good-soft: #143326; --warn: #e3a54a; --warn-soft: #3a2a12; --bad: #f07267; --bad-soft: #3d1a17;
+  --info: #6aa8ec; --info-soft: #172a40; --neutral-soft: #222a35; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 1440px; margin: 0 auto; padding-block: 24px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 16px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+p { margin: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.tab { font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+
+/* Intro */
+.intro { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+.intro h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
+.intro p { color: var(--muted); max-width: 70ch; margin-top: 4px; }
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; }
+.stepc { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: grid; grid-template-columns: 24px 1fr; gap: 8px; align-items: start; }
+.stepc .n { width: 22px; height: 22px; border-radius: 50%; background: var(--neutral-soft); color: var(--muted); display: grid; place-items: center; font-size: 12px; font-weight: 600; }
+.stepc.done .n { background: var(--good); color: var(--surface); }
+.stepc.now { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
+.stepc .who { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+.who.s { color: var(--supplier); } .who.b { color: var(--brand); }
+
+/* Phone tabs */
+.switch { display: none; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 4px; gap: 4px; }
+.switch button { flex: 1; border: 0; background: transparent; padding: 8px; border-radius: 7px; font-weight: 600; cursor: pointer; color: var(--muted); }
+.switch button[aria-selected="true"] { background: var(--surface-2); color: var(--ink); }
+
+/* Windows */
+.panes { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.win { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px; overflow: hidden; min-width: 0; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.chrome { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--surface); flex-wrap: wrap; }
+.logo { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; flex: none; }
+.logo svg { width: 16px; height: 16px; }
+.win.s .logo { background: var(--supplier); } .win.b .logo { background: var(--brand); }
+.app-name { font-weight: 600; font-size: 13px; line-height: 1.2; }
+.nav { display: flex; gap: 2px; flex-wrap: wrap; margin-left: auto; }
+.nav button { border: 0; background: transparent; padding: 6px 10px; border-radius: 7px; font-weight: 500; font-size: 13px; color: var(--ink-2); cursor: pointer; position: relative; }
+.nav button:hover { background: var(--surface-2); }
+.win.s .nav button[aria-current="true"] { background: var(--supplier-soft); color: var(--supplier); }
+.win.b .nav button[aria-current="true"] { background: var(--brand-soft); color: var(--brand); }
+.count { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 4px; border-radius: 9px; background: var(--warn-soft); color: var(--warn); font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; }
+.body { padding: 16px; display: grid; gap: 14px; background: var(--bg); min-height: 520px; align-content: start; }
+.flash { animation: flash 1.2s ease-out; }
+@keyframes flash { 0% { box-shadow: inset 0 0 0 3px var(--warn); } 100% { box-shadow: inset 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .flash { animation: none; } }
+
+/* Components */
+.hd { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; justify-content: space-between; }
+.hd h2 { font-size: 18px; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; min-width: 0; }
+.card > .ch { padding: 10px 14px; border-bottom: 1px solid var(--border); font-weight: 600; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.card > .cb { padding: 12px 14px; display: grid; gap: 10px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+.stat .l { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 500; }
+.stat .v { font-size: 20px; font-weight: 650; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.badge { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+.t-good { background: var(--good-soft); color: var(--good); } .t-warn { background: var(--warn-soft); color: var(--warn); }
+.t-bad { background: var(--bad-soft); color: var(--bad); } .t-info { background: var(--info-soft); color: var(--info); }
+.t-neutral { background: var(--neutral-soft); color: var(--ink-2); } .t-brand { background: var(--brand-soft); color: var(--brand); }
+.t-sup { background: var(--supplier-soft); color: var(--supplier); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 7px; border: 1px solid transparent; padding: 7px 14px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.p { background: var(--brand); color: var(--brand-ink); } .win.s .btn.p { background: var(--supplier); color: var(--surface); }
+.btn.sec { background: var(--surface); border-color: var(--border-strong); }
+.btn.good { background: var(--good); color: var(--surface); } .btn.bad { background: var(--bad); color: var(--surface); }
+.btn.ghost { background: transparent; color: var(--ink-2); }
+.btn.sm { padding: 4px 10px; font-size: 13px; }
+.full { width: 100%; }
+.row-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+label.f { display: grid; gap: 4px; font-size: 13px; font-weight: 500; }
+label.f .h { font-weight: 400; font-size: 12px; color: var(--muted); }
+input.i, select.i, textarea.i { width: 100%; border: 1px solid var(--border-strong); background: var(--surface); border-radius: 7px; padding: 7px 10px; }
+textarea.i { resize: vertical; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.tw { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 500; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--surface-2); white-space: nowrap; }
+td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+td.r, th.r { text-align: right; }
+a.lnk, button.lnk { color: var(--brand); font-weight: 600; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+.win.s a.lnk, .win.s button.lnk { color: var(--supplier); }
+.back { font-size: 13px; color: var(--muted); background: none; border: 0; padding: 0; cursor: pointer; justify-self: start; }
+.alert { border-radius: 8px; padding: 9px 12px; font-size: 13px; }
+.alert b { display: block; margin-bottom: 2px; }
+.meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px 14px; }
+.meta dt { font-size: 11px; color: var(--muted); } .meta dd { margin: 0; font-weight: 500; overflow-wrap: anywhere; }
+dl { margin: 0; }
+.tot { display: grid; justify-content: end; gap: 2px; font-size: 13px; }
+.tot div { display: flex; gap: 24px; justify-content: space-between; }
+.tot .big { font-weight: 650; font-size: 15px; }
+.tl { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.tl li { display: grid; grid-template-columns: 12px 1fr; gap: 8px; }
+.tl .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--border-strong); margin-top: 5px; }
+.tl li:last-child .dot { background: var(--brand); } .win.s .tl li:last-child .dot { background: var(--supplier); }
+.chk { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.chk li { display: grid; grid-template-columns: 18px 1fr; gap: 6px; font-size: 13px; }
+.ic { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; font-weight: 700; margin-top: 1px; }
+.ic.ok { background: var(--good-soft); color: var(--good); } .ic.w { background: var(--warn-soft); color: var(--warn); } .ic.x { background: var(--bad-soft); color: var(--bad); }
+.msgs { display: grid; gap: 8px; }
+.msg { max-width: 88%; padding: 7px 10px; border-radius: 9px; background: var(--surface-2); font-size: 13px; }
+.msg.me { margin-left: auto; background: var(--brand-soft); } .win.s .msg.me { background: var(--supplier-soft); }
+.msg .by { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.po-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+.po { text-align: left; border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; background: var(--surface); cursor: pointer; display: grid; gap: 2px; }
+.po:hover { border-color: var(--supplier); }
+.po.sel { border-color: var(--supplier); background: var(--supplier-soft); }
+.split { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.cmp { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.cmp > div { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+.cmp > div.new { border-color: var(--warn); }
+.empty { padding: 26px 14px; text-align: center; color: var(--muted); }
+.feed { font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 9px 14px; border-radius: 8px; font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,.2); max-width: calc(100% - 32px); z-index: 20; }
+.foot { font-size: 12px; color: var(--muted); text-align: center; }
+
+@media (max-width: 980px) {
+  .switch { display: flex; }
+  .panes { grid-template-columns: minmax(0, 1fr); }
+  .panes[data-show="s"] .win.b, .panes[data-show="b"] .win.s { display: none; }
+}
+</style>
+
+<div class="wrap">
+  <header class="intro">
+    <div>
+      <h1>Control Room: supplier portal and buyer approvals</h1>
+      <p>A clickable demo of both sides with sample data. On the left, Priya sends invoices from Brightpath Cleaning Services. On the right, Dana approves and pays them at Harbor &amp; Pine Manufacturing. What one side does shows up on the other.</p>
+    </div>
+    <button class="btn sec" id="reset">Reset demo</button>
+  </header>
+
+  <section class="steps" id="steps" aria-label="Suggested walkthrough"></section>
+
+  <div class="switch" role="tablist" id="switch">
+    <button role="tab" aria-selected="true" data-show="s">Supplier · Priya</button>
+    <button role="tab" aria-selected="false" data-show="b">Buyer · Dana</button>
+  </div>
+
+  <div class="panes" id="panes" data-show="s">
+    <section class="win s" aria-label="Supplier portal">
+      <div class="chrome">
+        <div class="logo"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7" stroke="white" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div><div class="app-name">Supplier portal</div><div class="small muted">Brightpath Cleaning Services LLC · Priya Raman</div></div>
+        <nav class="nav" id="snav"></nav>
+      </div>
+      <div class="body" id="sbody"></div>
+    </section>
+    <section class="win b" aria-label="Control Room buyer app">
+      <div class="chrome">
+        <div class="logo"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7" stroke="white" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div><div class="app-name">Control Room</div><div class="small muted">Harbor &amp; Pine Manufacturing · Dana Whitfield, Controller</div></div>
+        <nav class="nav" id="bnav"></nav>
+      </div>
+      <div class="body" id="bbody"></div>
+    </section>
+  </div>
+
+  <p class="foot">Sample data only. In the real app the AI check is your connected agent plus your own rules; here it is simulated with the same rules: three-way match, approval limits, duplicates, bank details and blocked vendors.</p>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+const BUYER = "Harbor & Pine Manufacturing";
+const AUTO_LIMIT = 500000;      // $5,000 auto-approve limit (cents)
+const CONTROLLER_BAND = 1000000; // over $10,000 needs a controller
+const fmt = (c) => (c < 0 ? "−" : "") + "$" + (Math.abs(c) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const today = new Date();
+const dAgo = (n) => new Date(today.getTime() - n * 864e5);
+const dFmt = (d) => d.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+const tFmt = (d) => d.toLocaleString("en-US", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+
+const SUP_STATUS = { draft: ["Draft", "neutral"], submitted: ["Sent", "info"], under_review: ["With buyer for approval", "info"], approved: ["Approved", "good"], needs_changes: ["Needs changes", "warn"], rejected: ["Rejected", "bad"], scheduled: ["Payment scheduled", "brand"], paid: ["Paid", "good"] };
+const BUY_STATUS = { ...SUP_STATUS, submitted: ["Received", "info"], under_review: ["Waiting for a decision", "warn"], approved: ["Approved, not yet scheduled", "good"], needs_changes: ["Sent back to supplier", "warn"] };
+const badge = (map, s) => `<span class="badge t-${map[s][1]}">${map[s][0]}</span>`;
+
+function seed() {
+  const ev = (status, note, who, ago) => ({ status, note, who, at: dAgo(ago) });
+  return {
+    pos: [
+      { n: "PO-90005", qty: 200, unit: 1850, delivered: 200, billed: 0, raised: dAgo(5) },
+      { n: "PO-90002", qty: 120, unit: 6250, delivered: 80, billed: 60, raised: dAgo(14) },
+      { n: "PO-90006", qty: 10, unit: 120000, delivered: 10, billed: 0, raised: dAgo(4) },
+      { n: "PO-90004", qty: 25, unit: 4000, delivered: 0, billed: 0, raised: dAgo(3) },
+    ],
+    bank: { name: "First Cascade Bank", last4: "9876" },
+    myBankChange: null,
+    payFrom: [{ id: "op", name: "Operating account", bank: "Pacific Commerce Bank", last4: "6789", def: true }, { id: "sp", name: "Supplier payments", bank: "Columbia Business Bank", last4: "7766", def: false }],
+    marco: { pending: true, from: "Summit Trust ••3344", to: "Evergreen Federal Credit Union ••7781", decided: null },
+    invoices: [
+      { id: "BP-1003", po: "PO-90003", lines: [{ d: "Facilities & utilities, 10 units, installed", q: 10, u: 120000 }], status: "under_review", sent: dAgo(1),
+        check: { proposed: "Approve", conf: 94, rules: [["pass", "Three-way match", "Matches PO-90003 and goods received note"], ["fail", "Approval limits", "$12,000.00 is in the $10,000 – $50,000 band and needs a controller"], ["pass", "Duplicate invoice check", "No earlier invoice with the same amount or number"], ["pass", "New or changed bank details", "Bank details match the vendor record"], ["pass", "Blocked vendors", "Vendor is not on the blocked list"]], outcome: "Waiting for review" },
+        events: [ev("draft", null, "Priya Raman", 1.2), ev("submitted", null, "Priya Raman", 1.01), ev("under_review", "With Harbor & Pine's accounts payable team for approval", null, 1)], msgs: [] },
+      { id: "BP-1002", po: "PO-90002", lines: [{ d: "Facilities & utilities, first delivery (60 of 120)", q: 60, u: 6250 }], status: "scheduled", sent: dAgo(9), payOn: new Date(today.getTime() + 2 * 864e5),
+        events: [ev("draft", null, "Priya Raman", 9.1), ev("submitted", null, "Priya Raman", 9.01), ev("under_review", "With Harbor & Pine's accounts payable team for approval", null, 9), ev("approved", "Approved for payment", "Dana Whitfield", 1), ev("scheduled", "Payment of $3,750.00 scheduled to your account ending 9876", "Dana Whitfield", 1)], msgs: [] },
+      { id: "BP-1001", po: "PO-90001", lines: [{ d: "Facilities & utilities, 40 units as ordered", q: 40, u: 8500 }], status: "paid", sent: dAgo(28), paidOn: dAgo(7), ref: "ACH-55102",
+        events: [ev("draft", null, "Priya Raman", 28.1), ev("submitted", null, "Priya Raman", 28.01), ev("approved", "Approved for payment", null, 28), ev("scheduled", "Payment scheduled to your account ending 9876", "Dana Whitfield", 10), ev("paid", "Paid $3,400.00. Payment reference ACH-55102", "Dana Whitfield", 7)], msgs: [] },
+      { id: "BP-0998", po: null, lines: [{ d: "Rush freight surcharge", q: 1, u: 64000 }], status: "needs_changes", sent: dAgo(6),
+        note: "Please add the PO number this freight relates to (it should be PO-90002) and send it again.",
+        events: [ev("draft", null, "Priya Raman", 6.1), ev("submitted", null, "Priya Raman", 6.01), ev("under_review", "With Harbor & Pine's accounts payable team for approval", null, 6), ev("needs_changes", "Please add the PO number this freight relates to (it should be PO-90002) and send it again.", "Dana Whitfield", 5)],
+        msgs: [{ me: "buyer", by: "Dana Whitfield", body: "Please add the PO number this freight relates to (it should be PO-90002) and send it again.", at: dAgo(5) }] },
+    ],
+  };
+}
+
+let S = seed();
+const view = { s: { page: "home" }, b: { page: "invoices", tab: "under_review" } };
+let draftForm = null;
+
+const total = (inv) => inv.lines.reduce((t, l) => t + l.q * l.u, 0);
+const find = (id) => S.invoices.find((i) => i.id === id);
+
+/* Walkthrough */
+function stepState() {
+  const mine = S.invoices.filter((i) => i.isNew);
+  const sent = mine.some((i) => i.status !== "draft");
+  const decided = mine.some((i) => ["approved", "scheduled", "paid"].includes(i.status));
+  const paid = mine.some((i) => i.status === "paid");
+  const steps = [
+    ["s", "Priya bills a purchase order", "Supplier → New invoice → pick PO-90005 → Save → Send", sent],
+    ["b", "Dana reviews the AI check", "Buyer → Supplier invoices → open it → Approve (if it's waiting)", decided],
+    ["b", "Dana schedules and records payment", "Pay from the operating account, then Mark as paid", paid],
+    ["b", "Dana checks a bank detail change", "Buyer → Suppliers → approve Marco's change with a verification note", S.marco.decided !== null],
+  ];
+  const now = steps.findIndex((x) => !x[3]);
+  document.getElementById("steps").innerHTML = steps.map(([w, t, h, done], i) =>
+    `<div class="stepc ${done ? "done" : i === now ? "now" : ""}"><div class="n">${done ? "✓" : i + 1}</div><div><div class="who ${w}">${w === "s" ? "Supplier" : "Buyer"}</div><div style="font-weight:600">${t}</div><div class="small muted">${h}</div></div></div>`).join("");
+}
+
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toast.h); toast.h = setTimeout(() => (t.hidden = true), 2600);
+}
+function flash(side) {
+  const el = document.getElementById(side + "body");
+  el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
+}
+
+/* ---------------- Supplier side ---------------- */
+function sNav() {
+  const att = S.invoices.filter((i) => i.status === "needs_changes" || i.status === "draft").length;
+  const items = [["home", "Home"], ["invoices", "Invoices"], ["new", "New invoice"], ["bank", "Bank details"]];
+  document.getElementById("snav").innerHTML = items.map(([k, l]) =>
+    `<button data-s-go="${k}" aria-current="${view.s.page === k || (k === "invoices" && view.s.page === "detail")}">${l}${k === "home" && att ? `<span class="count">${att}</span>` : ""}</button>`).join("");
+}
+
+function sHome() {
+  const out = S.invoices.filter((i) => ["under_review", "approved", "scheduled"].includes(i.status));
+  const paid = S.invoices.filter((i) => i.status === "paid");
+  const att = S.invoices.filter((i) => i.status === "needs_changes" || i.status === "draft");
+  return `
+  <div class="hd"><h2>Hello, Priya</h2><button class="btn p sm" data-s-go="new">+ New invoice</button></div>
+  <div class="stats">
+    <div class="stat"><div class="l">Owed to you</div><div class="v">${fmt(out.reduce((t, i) => t + total(i), 0))}</div><div class="small muted">${out.length} sent, not yet paid</div></div>
+    <div class="stat"><div class="l">Payment scheduled</div><div class="v">${fmt(S.invoices.filter((i) => i.status === "scheduled").reduce((t, i) => t + total(i), 0))}</div><div class="small muted">Buyer has set a date</div></div>
+    <div class="stat"><div class="l">Paid, last 90 days</div><div class="v" style="color:var(--good)">${fmt(paid.reduce((t, i) => t + total(i), 0))}</div><div class="small muted">${paid.length} invoice${paid.length === 1 ? "" : "s"}</div></div>
+  </div>
+  <div class="card"><div class="ch">Needs your attention</div>
+    ${att.length ? `<div class="tw"><table><tbody>${att.map((i) => `<tr><td><button class="lnk" data-s-open="${i.id}">${i.id}</button><div class="small muted">${i.status === "draft" ? "Draft not sent yet" : "The buyer asked for changes"}</div></td><td class="r tab">${fmt(total(i))}</td><td class="r">${badge(SUP_STATUS, i.status)}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">All clear. Nothing is waiting for you.</div>`}
+  </div>
+  <div class="card"><div class="ch">Your buyer</div><div class="cb small">
+    <div><b>${BUYER}</b> · vendor code V-0002 · 30-day terms</div>
+    <div>Pays into ${S.bank.name} ••${S.bank.last4} ${S.myBankChange ? `<span class="badge t-warn">change waiting for approval</span>` : `<span class="badge t-good">Approved</span>`}</div>
+  </div></div>`;
+}
+
+function sInvoices() {
+  const rows = S.invoices;
+  return `
+  <div class="hd"><h2>Invoices</h2><button class="btn p sm" data-s-go="new">+ New invoice</button></div>
+  <div class="card tw"><table><thead><tr><th>Number</th><th>PO</th><th class="r">Amount</th><th>Status</th><th>Sent</th></tr></thead><tbody>
+  ${rows.map((i) => `<tr><td><button class="lnk" data-s-open="${i.id}">${i.id}</button></td><td class="muted">${i.po ?? "-"}</td><td class="r tab">${fmt(total(i))}</td><td>${badge(SUP_STATUS, i.status)}</td><td class="muted">${i.sent ? dFmt(i.sent) : "-"}</td></tr>`).join("")}
+  </tbody></table></div>`;
+}
+
+function openPOs() { return S.pos.filter((p) => p.billed < p.qty); }
+
+function sNew() {
+  const pos = openPOs();
+  const f = draftForm;
+  const lineTotal = f && f.q > 0 ? f.q * f.u : 0;
+  return `
+  <div class="hd"><h2>New invoice</h2></div>
+  <div class="card"><div class="ch">Open purchase orders from ${BUYER}</div><div class="cb">
+    <div class="small muted">Pick one and the line is filled in for what's been delivered but not billed.</div>
+    <div class="po-grid">${pos.map((p) => `<button class="po ${f && f.po === p.n ? "sel" : ""}" data-s-po="${p.n}">
+      <div style="display:flex;justify-content:space-between;gap:6px"><b>${p.n}</b><span class="tab">${fmt(p.qty * p.unit)}</span></div>
+      <div class="small muted">${p.qty} × ${fmt(p.unit)}</div>
+      <div class="small">${p.delivered === 0 ? `<span style="color:var(--warn)">Nothing delivered yet</span>` : `${p.delivered} delivered · ${p.billed} billed · <b>${Math.max(0, p.delivered - p.billed)} ready</b>`}</div>
+    </button>`).join("")}</div>
+  </div></div>
+  ${f ? `<div class="card"><div class="ch">Invoice details</div><div class="cb">
+    <div class="grid2">
+      <label class="f">Invoice number<input class="i" id="f-num" value="${esc(f.num)}" placeholder="BP-2001"></label>
+      <label class="f">Purchase order<input class="i" value="${f.po}" disabled></label>
+    </div>
+    <div class="grid2">
+      <label class="f">Description<input class="i" id="f-desc" value="${esc(f.d)}"></label>
+      <label class="f">Quantity<input class="i" id="f-q" inputmode="numeric" value="${f.q}"></label>
+      <label class="f">Unit price<input class="i" value="${fmt(f.u)}" disabled></label>
+    </div>
+    <div class="tot"><div class="big"><span>Total</span><span class="tab" id="f-total">${fmt(lineTotal)}</span></div></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn p" data-s-save>Save and review</button><span class="small muted">Nothing is sent yet.</span></div>
+  </div></div>` : ""}`;
+}
+
+function sChecks(inv) {
+  const po = S.pos.find((p) => p.n === inv.po);
+  const c = [["ok", `Payment will go to ${S.bank.name} account ending ${S.bank.last4}`]];
+  if (!inv.po) c.push(["w", "There's no purchase order number. Invoices without one usually take longer to approve."]);
+  else if (po) {
+    const q = inv.lines[0].q, remaining = (po.qty - po.billed) * po.unit;
+    c.push(total(inv) > remaining ? ["w", `This is more than what's left on ${po.n}. It will need extra approval.`] : ["ok", `Within what's left on ${po.n}`]);
+    if (po.delivered === 0) c.push(["w", `${BUYER} hasn't recorded a delivery for ${po.n} yet`]);
+    else if (q > po.delivered - po.billed) c.push(["w", `Only ${Math.max(0, po.delivered - po.billed)} unbilled units have been delivered on ${po.n}`]);
+    else c.push(["ok", "Matches what was delivered"]);
+  }
+  return c;
+}
+
+function sDetail(inv) {
+  const editable = inv.status === "draft" || inv.status === "needs_changes";
+  const checks = editable ? sChecks(inv) : [];
+  return `
+  <button class="back" data-s-go="invoices">← Invoices</button>
+  <div class="hd"><h2>Invoice ${inv.id} ${badge(SUP_STATUS, inv.status)}</h2><span class="small muted">To ${BUYER}</span></div>
+  ${inv.status === "needs_changes" ? `<div class="alert t-warn"><b>${BUYER} asked for changes</b>${esc(inv.note)}</div>` : ""}
+  ${inv.status === "rejected" ? `<div class="alert t-bad"><b>Rejected</b>${esc(inv.note)}</div>` : ""}
+  ${inv.status === "scheduled" ? `<div class="alert t-good"><b>Payment scheduled for ${dFmt(inv.payOn)}</b>${fmt(total(inv))} to your account ending ${S.bank.last4}.</div>` : ""}
+  ${inv.status === "paid" ? `<div class="alert t-good"><b>Paid on ${dFmt(inv.paidOn)}</b>Payment reference ${esc(inv.ref)}.</div>` : ""}
+  ${editable ? `<div class="card"><div class="ch">Before you send</div><div class="cb">
+    <ul class="chk">${checks.map(([l, m]) => `<li><span class="ic ${l === "ok" ? "ok" : l === "w" ? "w" : "x"}">${l === "ok" ? "✓" : "!"}</span><span>${m}</span></li>`).join("")}</ul>
+    ${inv.status === "needs_changes" && !inv.po ? `<label class="f">Add the purchase order<select class="i" id="fix-po"><option value="">Choose…</option>${S.pos.map((p) => `<option>${p.n}</option>`).join("")}</select></label>` : ""}
+    <button class="btn p full" data-s-send="${inv.id}">${inv.status === "needs_changes" ? "Send again" : "Send to buyer"}</button>
+  </div></div>` : ""}
+  <div class="card"><div class="cb">
+    <dl class="meta"><div><dt>PO</dt><dd>${inv.po ?? "None"}</dd></div><div><dt>Sent</dt><dd>${inv.sent ? dFmt(inv.sent) : "Not yet"}</dd></div><div><dt>Paid into</dt><dd>${S.bank.name} ••${S.bank.last4}</dd></div></dl>
+    <div class="tw"><table><thead><tr><th>Description</th><th class="r">Qty</th><th class="r">Unit</th><th class="r">Amount</th></tr></thead><tbody>
+    ${inv.lines.map((l) => `<tr><td>${esc(l.d)}</td><td class="r tab">${l.q}</td><td class="r tab">${fmt(l.u)}</td><td class="r tab">${fmt(l.q * l.u)}</td></tr>`).join("")}
+    </tbody></table></div>
+    <div class="tot"><div class="big"><span>Total</span><span class="tab">${fmt(total(inv))}</span></div></div>
+  </div></div>
+  <div class="card"><div class="ch">Where it is</div><div class="cb">${timeline(inv, SUP_STATUS)}</div></div>
+  <div class="card"><div class="ch">Messages with ${BUYER}</div><div class="cb">${thread(inv, "supplier")}</div></div>`;
+}
+
+function sBank() {
+  return `
+  <div class="hd"><h2>Bank details</h2></div>
+  <div class="card"><div class="cb">
+    <div><b>${BUYER}</b> pays you into ${S.bank.name} ••${S.bank.last4} <span class="badge t-good">Approved</span></div>
+    ${S.myBankChange ? `<div class="alert t-warn">Change to ${esc(S.myBankChange.bank)} ••${esc(S.myBankChange.last4)} requested. Waiting for ${BUYER} to confirm with you. Until then they keep paying the account above.</div>` : ""}
+  </div></div>
+  <div class="card"><div class="ch">Change bank account</div><div class="cb">
+    <div class="grid2">
+      <label class="f">Bank name<input class="i" id="nb-bank" value="Rainier Savings Bank"></label>
+      <label class="f">Routing number<input class="i" id="nb-routing" value="125000024" inputmode="numeric"></label>
+      <label class="f">Account number<input class="i" id="nb-acct" value="3300418822" inputmode="numeric"></label>
+      <label class="f">Your password <span class="h">To confirm it's really you</span><input class="i" id="nb-pw" type="password" value="demo1234"></label>
+    </div>
+    <button class="btn p" data-s-bank>Send for approval</button>
+    <div class="small muted">Nothing changes until the buyer approves. Your buyers never ask for bank changes by email.</div>
+  </div></div>`;
+}
+
+/* ---------------- Buyer side ---------------- */
+function bNav() {
+  const waiting = S.invoices.filter((i) => i.status === "under_review").length;
+  const changes = (S.marco.pending ? 1 : 0) + (S.myBankChange && !S.myBankChange.decided ? 1 : 0);
+  const items = [["invoices", "Supplier invoices", waiting], ["suppliers", "Suppliers", changes], ["bank", "Bank accounts", 0]];
+  document.getElementById("bnav").innerHTML = items.map(([k, l, n]) =>
+    `<button data-b-go="${k}" aria-current="${view.b.page === k || (k === "invoices" && view.b.page === "detail")}">${l}${n ? `<span class="count">${n}</span>` : ""}</button>`).join("");
+}
+
+function bInvoices() {
+  const tabs = [["under_review", "Waiting for a decision"], ["approved", "Ready to pay"], ["scheduled", "Scheduled"], ["paid", "Paid"], ["needs_changes", "Sent back"], ["all", "All"]];
+  const t = view.b.tab;
+  const rows = S.invoices.filter((i) => i.status !== "draft" && (t === "all" || i.status === t));
+  return `
+  <div class="hd"><h2>Supplier invoices</h2></div>
+  <div style="display:flex;flex-wrap:wrap;gap:4px">${tabs.map(([k, l]) => {
+    const n = S.invoices.filter((i) => i.status !== "draft" && (k === "all" || i.status === k)).length;
+    return `<button class="btn sm ${t === k ? "sec" : "ghost"}" data-b-tab="${k}">${l} <span class="muted tab">${n}</span></button>`; }).join("")}</div>
+  <div class="card tw">${rows.length ? `<table><thead><tr><th>Invoice</th><th>Supplier</th><th class="r">Amount</th><th>Status</th><th>Received</th></tr></thead><tbody>
+  ${rows.map((i) => `<tr><td><button class="lnk" data-b-open="${i.id}">${i.id}</button>${i.isNew ? ` <span class="badge t-sup">new</span>` : ""}</td><td>Brightpath Cleaning<div class="small muted">V-0002</div></td><td class="r tab">${fmt(total(i))}</td><td>${badge(BUY_STATUS, i.status)}</td><td class="muted">${dFmt(i.sent)}</td></tr>`).join("")}
+  </tbody></table>` : `<div class="empty">No supplier invoices with this status.</div>`}</div>`;
+}
+
+function bDetail(inv) {
+  const c = inv.check;
+  const failed = c ? c.rules.filter((r) => r[0] === "fail").length : 0;
+  return `
+  <button class="back" data-b-go="invoices">← Supplier invoices</button>
+  <div class="hd"><h2>Invoice ${inv.id} ${badge(BUY_STATUS, inv.status)}</h2><span class="small muted">From Brightpath Cleaning Services (V-0002)</span></div>
+  ${inv.status === "under_review" ? `<div class="card" style="border-color:var(--brand)"><div class="ch">Your decision</div><div class="cb">
+    ${failed ? `<div class="alert t-warn">${failed} check failed. Approving overrides it.</div>` : ""}
+    <label class="f">Reason <span class="h">Kept internal; the auditor sees it</span><textarea class="i" id="d-reason" rows="2">Matches the PO and the delivery record</textarea></label>
+    <label class="f">Message to the supplier <span class="h">Needed to send back or reject; the supplier sees it</span><textarea class="i" id="d-msg" rows="2" placeholder="e.g. Please add the PO number"></textarea></label>
+    <button class="btn good full" data-b-decide="approve">Approve</button>
+    <div class="row-btns"><button class="btn sec" data-b-decide="send_back">Send back for changes</button><button class="btn bad" data-b-decide="reject">Reject</button></div>
+  </div></div>` : ""}
+  ${inv.status === "approved" || inv.status === "scheduled" ? `<div class="card"><div class="ch">${inv.status === "scheduled" ? "Payment scheduled" : "Pay this invoice"}</div><div class="cb">
+    <div class="small muted">${fmt(total(inv))} to ${S.bank.name} ••${S.bank.last4}</div>
+    ${S.myBankChange && !S.myBankChange.decided ? `<div class="alert t-warn">A bank detail change for this supplier is waiting. Payments are on hold until it's decided.</div>` : ""}
+    <div class="grid2">
+      <label class="f">Pay from<select class="i" id="p-from">${S.payFrom.map((a) => `<option value="${a.id}">${a.name} ••${a.last4}</option>`).join("")}</select></label>
+      <label class="f">Payment date<input class="i" type="date" id="p-date" value="${new Date(today.getTime() + 2 * 864e5).toISOString().slice(0, 10)}"></label>
+    </div>
+    ${inv.status === "approved" ? `<button class="btn p full" data-b-schedule ${S.myBankChange && !S.myBankChange.decided ? "disabled" : ""}>Schedule payment</button>` : `
+      <div class="small muted">Control Room records payments; your bank sends them. Once sent, record it here.</div>
+      <label class="f">Bank reference<input class="i" id="p-ref" value="ACH-${Math.floor(10000 + Math.random() * 89999)}"></label>
+      <button class="btn good full" data-b-paid>Mark as paid</button>`}
+  </div></div>` : ""}
+  <div class="card"><div class="cb">
+    <dl class="meta"><div><dt>PO</dt><dd>${inv.po ?? "None"}</dd></div><div><dt>Received</dt><dd>${dFmt(inv.sent)}</dd></div><div><dt>Pay to</dt><dd>${S.bank.name} ••${S.bank.last4}</dd></div>${inv.payOn && inv.status === "scheduled" ? `<div><dt>Payment date</dt><dd>${dFmt(inv.payOn)}</dd></div>` : ""}</dl>
+    <div class="tw"><table><thead><tr><th>Description</th><th class="r">Qty</th><th class="r">Amount</th></tr></thead><tbody>
+    ${inv.lines.map((l) => `<tr><td>${esc(l.d)}</td><td class="r tab">${l.q}</td><td class="r tab">${fmt(l.q * l.u)}</td></tr>`).join("")}
+    </tbody></table></div>
+    <div class="tot"><div class="big"><span>Total</span><span class="tab">${fmt(total(inv))}</span></div></div>
+  </div></div>
+  ${c ? `<div class="card"><div class="ch">AI check and rules <span class="small muted" style="font-weight:400">the supplier doesn't see this</span></div><div class="cb">
+    <div class="small">Agent proposed: <b>${c.proposed}</b> · ${c.conf}% sure · Outcome: <b>${c.outcome}</b></div>
+    <ul class="chk">${c.rules.map(([r, n, e]) => `<li><span class="ic ${r === "pass" ? "ok" : "x"}">${r === "pass" ? "✓" : "✕"}</span><span><b>${n}</b><br><span class="muted">${esc(e)}</span></span></li>`).join("")}</ul>
+  </div></div>` : ""}
+  <div class="card"><div class="ch">Timeline</div><div class="cb">${timeline(inv, BUY_STATUS)}</div></div>
+  <div class="card"><div class="ch">Messages with the supplier</div><div class="cb">${thread(inv, "buyer")}</div></div>`;
+}
+
+function bSuppliers() {
+  const changes = [];
+  if (S.marco.pending) changes.push({ key: "marco", who: "Copperleaf Consulting", code: "V-0005", by: "Marco Diaz", phone: "(206) 555-0187", from: S.marco.from, to: S.marco.to });
+  if (S.myBankChange && !S.myBankChange.decided) changes.push({ key: "priya", who: "Brightpath Cleaning Services", code: "V-0002", by: "Priya Raman", phone: "(503) 555-0142", from: `${S.bank.name} ••${S.bank.last4}`, to: `${S.myBankChange.bank} ••${S.myBankChange.last4}` });
+  return `
+  <div class="hd"><h2>Suppliers</h2></div>
+  <div class="card"><div class="ch">Bank detail changes waiting (${changes.length})</div><div class="cb">
+    <div class="small muted">Changing where a supplier is paid is the most common invoice fraud. Call the supplier on a number from your own records before approving.</div>
+    ${changes.length ? changes.map((c) => `<div class="card" style="border-color:var(--warn)"><div class="cb">
+      <div><b>${c.who}</b> <span class="muted">${c.code}</span><div class="small muted">Requested by ${c.by} · contact on file ${c.phone}</div></div>
+      <div class="cmp"><div><div class="small muted">Currently paid into</div><b>${esc(c.from)}</b></div><div class="new"><div class="small muted">Wants to be paid into</div><b>${esc(c.to)}</b></div></div>
+      <label class="f">How did you confirm this with the supplier? <span class="h">Required to approve</span><textarea class="i" id="v-${c.key}" rows="2">Called ${c.by} on ${c.phone} from our vendor file; confirmed the new account</textarea></label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn good" data-b-bank="${c.key}" data-d="approve">Approve new bank details</button><button class="btn sec" data-b-bank="${c.key}" data-d="reject">Reject</button></div>
+    </div></div>`).join("") : `<div class="empty">Nothing waiting.${S.marco.decided ? ` Marco's change was ${S.marco.decided}.` : ""}</div>`}
+  </div></div>
+  <div class="card tw"><table><thead><tr><th>Supplier</th><th>Status</th><th>Paid into</th><th class="r">Invoices</th></tr></thead><tbody>
+    <tr><td>Brightpath Cleaning Services<div class="small muted">V-0002</div></td><td><span class="badge t-good">Connected</span></td><td>${S.bank.name} ••${S.bank.last4}</td><td class="r tab">${S.invoices.length}</td></tr>
+    <tr><td>Copperleaf Consulting<div class="small muted">V-0005</div></td><td><span class="badge t-good">Connected</span></td><td>${S.marco.decided === "approved" ? S.marco.to : S.marco.from}</td><td class="r tab">0</td></tr>
+    <tr><td>Oakridge Paper Co.<div class="small muted">V-0009</div></td><td><span class="badge t-warn">Invited</span><div class="small muted">accounts@newsupplier.example</div></td><td class="muted">None yet</td><td class="r tab">0</td></tr>
+  </tbody></table></div>`;
+}
+
+function bBank() {
+  return `
+  <div class="hd"><h2>Bank accounts</h2></div>
+  <div class="small muted">The accounts you pay suppliers from. Numbers are stored encrypted; only the last four digits are shown.</div>
+  <div class="card tw"><table><thead><tr><th>Account</th><th>Bank</th><th>Routing</th><th>Number</th></tr></thead><tbody>
+  ${S.payFrom.map((a) => `<tr><td><b>${a.name}</b> ${a.def ? `<span class="badge t-brand">Default</span>` : ""}</td><td>${a.bank}</td><td class="tab">${a.id === "op" ? "123000848" : "121000358"}</td><td class="tab">••••${a.last4}</td></tr>`).join("")}
+  </tbody></table></div>`;
+}
+
+/* ---------------- Shared bits ---------------- */
+function timeline(inv, map) {
+  return `<ol class="tl">${inv.events.map((e) => `<li><span class="dot"></span><div><div style="font-weight:500">${map[e.status][0]}</div>${e.note ? `<div class="small">${esc(e.note)}</div>` : ""}<div class="small muted">${tFmt(e.at)}${e.who ? " · " + esc(e.who) : ""}</div></div></li>`).join("")}</ol>`;
+}
+function thread(inv, me) {
+  const can = inv.status !== "draft";
+  return `<div class="msgs">${inv.msgs.length ? inv.msgs.map((m) => `<div class="msg ${m.me === me ? "me" : ""}">${esc(m.body)}<div class="by">${esc(m.by)} · ${tFmt(m.at)}</div></div>`).join("") : `<div class="small muted">${can ? "No messages yet." : "You can message the buyer once the invoice is sent."}</div>`}</div>
+  ${can ? `<div style="display:flex;gap:8px"><input class="i" id="m-${me}" placeholder="Write a message"><button class="btn sec" data-msg="${me}" data-id="${inv.id}">Send</button></div>` : ""}`;
+}
+
+/* ---------------- Actions ---------------- */
+function aiCheck(inv) {
+  const po = S.pos.find((p) => p.n === inv.po);
+  const amt = total(inv), q = inv.lines[0].q;
+  const rules = [];
+  const match = po && po.delivered > 0 && q <= po.delivered - po.billed && amt <= (po.qty - po.billed) * po.unit;
+  rules.push([match ? "pass" : "fail", "Three-way match", !inv.po ? "No purchase order on the invoice" : !po ? `Can't find ${inv.po}` : po.delivered === 0 ? `No goods received note for ${po.n}` : match ? `Matches ${po.n} and goods received` : `Invoice is more than delivered on ${po.n}`]);
+  const big = amt > CONTROLLER_BAND;
+  rules.push([big ? "fail" : "pass", "Approval limits", big ? `${fmt(amt)} is in the $10,000 – $50,000 band and needs a controller` : `${fmt(amt)} is in the $0 – $10,000 band, which needs no approval`]);
+  const dup = S.invoices.some((o) => o !== inv && o.status !== "draft" && total(o) === amt);
+  rules.push([dup ? "fail" : "pass", "Duplicate invoice check", dup ? "Another invoice from this vendor has the same amount" : "No earlier invoice with the same amount or number"]);
+  rules.push(["pass", "New or changed bank details", "Bank details match the vendor record"]);
+  rules.push(["pass", "Blocked vendors", "Vendor is not on the blocked list"]);
+  const fails = rules.filter((r) => r[0] === "fail").length;
+  const auto = !fails && amt <= AUTO_LIMIT;
+  return { proposed: match ? "Approve" : "Send to a person", conf: match ? 96 : 81, rules, outcome: auto ? "Approved automatically" : "Waiting for review", auto };
+}
+
+function send(inv) {
+  const now = new Date();
+  inv.sent = now;
+  inv.check = aiCheck(inv);
+  inv.events.push({ status: "submitted", note: inv.status === "needs_changes" ? "Corrected and sent again" : null, who: "Priya Raman", at: now });
+  if (inv.check.auto) {
+    inv.status = "approved";
+    inv.events.push({ status: "approved", note: "Approved for payment", who: null, at: new Date(now.getTime() + 1000) });
+  } else {
+    inv.status = "under_review";
+    inv.events.push({ status: "under_review", note: "With Harbor & Pine's accounts payable team for approval", who: null, at: new Date(now.getTime() + 1000) });
+  }
+  const po = S.pos.find((p) => p.n === inv.po);
+  if (po) po.billed += inv.lines[0].q;
+  toast(inv.check.auto ? `${inv.id} passed every check and was approved automatically` : `${inv.id} sent. Dana has it waiting for a decision.`);
+  flash("b");
+}
+
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("button");
+  if (!t) return;
+  const d = t.dataset;
+  if (t.id === "reset") { S = seed(); draftForm = null; view.s = { page: "home" }; view.b = { page: "invoices", tab: "under_review" }; toast("Demo reset"); }
+  else if (d.show) { document.getElementById("panes").dataset.show = d.show; document.querySelectorAll("#switch button").forEach((b) => b.setAttribute("aria-selected", String(b === t))); }
+  else if (d.sGo) { view.s = { page: d.sGo }; if (d.sGo === "new") draftForm = null; }
+  else if (d.sOpen) view.s = { page: "detail", id: d.sOpen };
+  else if (d.sPo !== undefined) {
+    const p = S.pos.find((x) => x.n === d.sPo);
+    const ready = Math.max(0, p.delivered - p.billed);
+    draftForm = { po: p.n, num: draftForm?.num ?? `BP-${2000 + S.invoices.length}`, d: `Facilities & utilities as ordered on ${p.n}`, q: ready || p.qty - p.billed, u: p.unit };
+  }
+  else if (d.sSave !== undefined) {
+    const num = document.getElementById("f-num").value.trim();
+    const q = parseInt(document.getElementById("f-q").value, 10);
+    if (!num) return toast("Enter your invoice number");
+    if (S.invoices.some((i) => i.id === num)) return toast(`You've already used number ${num} with ${BUYER}`);
+    if (!(q > 0)) return toast("Quantity must be at least 1");
+    const inv = { id: num, po: draftForm.po, lines: [{ d: document.getElementById("f-desc").value, q, u: draftForm.u }], status: "draft", isNew: true, events: [{ status: "draft", note: null, who: "Priya Raman", at: new Date() }], msgs: [] };
+    S.invoices.unshift(inv); draftForm = null; view.s = { page: "detail", id: inv.id };
+  }
+  else if (d.sSend) {
+    const inv = find(d.sSend);
+    if (inv.status === "needs_changes" && !inv.po) {
+      const po = document.getElementById("fix-po")?.value;
+      if (!po) return toast("Add the purchase order the buyer asked for");
+      inv.po = po;
+    }
+    inv.isNew = true;
+    send(inv);
+  }
+  else if (d.sBank !== undefined) {
+    const acct = document.getElementById("nb-acct").value.replace(/\D/g, "");
+    if (document.getElementById("nb-pw").value !== "demo1234") return toast("Your password is incorrect");
+    if (acct.length < 4) return toast("Account numbers are 4 to 17 digits");
+    S.myBankChange = { bank: document.getElementById("nb-bank").value || "New bank", last4: acct.slice(-4), decided: null };
+    toast("Sent to Harbor & Pine for approval"); flash("b");
+  }
+  else if (d.bGo) view.b = { page: d.bGo, tab: "under_review" };
+  else if (d.bTab) view.b = { page: "invoices", tab: d.bTab };
+  else if (d.bOpen) view.b = { page: "detail", id: d.bOpen, tab: view.b.tab };
+  else if (d.bDecide) {
+    const inv = find(view.b.id);
+    const reason = document.getElementById("d-reason").value.trim();
+    const msg = document.getElementById("d-msg").value.trim();
+    if (reason.length < 10) return toast("Give a reason of at least a few words");
+    if (d.bDecide !== "approve" && msg.length < 5) return toast("Tell the supplier what to fix or why");
+    const next = { approve: "approved", send_back: "needs_changes", reject: "rejected" }[d.bDecide];
+    const note = msg || (next === "approved" ? "Approved for payment" : "");
+    inv.status = next; inv.note = note;
+    inv.events.push({ status: next, note, who: "Dana Whitfield", at: new Date() });
+    if (msg) inv.msgs.push({ me: "buyer", by: "Dana Whitfield", body: msg, at: new Date() });
+    if (inv.check) inv.check.outcome = next === "approved" ? "Approved by a person" : "Rejected by a person";
+    if (next !== "approved") { const po = S.pos.find((p) => p.n === inv.po); if (po) po.billed -= inv.lines[0].q; }
+    toast(`${inv.id}: ${BUY_STATUS[next][0].toLowerCase()}`); flash("s");
+  }
+  else if (d.bSchedule !== undefined) {
+    const inv = find(view.b.id);
+    const from = S.payFrom.find((a) => a.id === document.getElementById("p-from").value);
+    const date = new Date(document.getElementById("p-date").value + "T12:00:00");
+    inv.status = "scheduled"; inv.payOn = date;
+    inv.events.push({ status: "scheduled", note: `Payment of ${fmt(total(inv))} scheduled for ${dFmt(date)} to your account ending ${S.bank.last4}`, who: "Dana Whitfield", at: new Date() });
+    toast(`Scheduled from ${from.name}`); flash("s");
+  }
+  else if (d.bPaid !== undefined) {
+    const inv = find(view.b.id);
+    const ref = document.getElementById("p-ref").value.trim();
+    if (ref.length < 3) return toast("Enter the payment reference from your bank");
+    inv.status = "paid"; inv.paidOn = new Date(); inv.ref = ref;
+    inv.events.push({ status: "paid", note: `Paid ${fmt(total(inv))}. Payment reference ${ref}`, who: "Dana Whitfield", at: new Date() });
+    toast("Recorded as paid. Priya can see it now."); flash("s");
+  }
+  else if (d.bBank) {
+    const v = document.getElementById("v-" + d.bBank).value.trim();
+    if (d.d === "approve" && v.length < 10) return toast("Say how you confirmed the change with the supplier");
+    if (d.bBank === "marco") { S.marco.pending = false; S.marco.decided = d.d === "approve" ? "approved" : "rejected"; }
+    else {
+      if (d.d === "approve") { S.bank = { name: S.myBankChange.bank, last4: S.myBankChange.last4 }; }
+      S.myBankChange = null; flash("s");
+    }
+    toast(d.d === "approve" ? "Bank details approved. The next payments go to a person as an extra check." : "Change rejected");
+  }
+  else if (d.msg) {
+    const inp = document.getElementById("m-" + d.msg);
+    if (!inp.value.trim()) return;
+    find(d.id).msgs.push({ me: d.msg, by: d.msg === "buyer" ? "Dana Whitfield" : "Priya Raman", body: inp.value.trim(), at: new Date() });
+    flash(d.msg === "buyer" ? "s" : "b");
+  }
+  else return;
+  render();
+});
+
+document.addEventListener("input", (e) => {
+  if (e.target.id === "f-q" && draftForm) {
+    const q = parseInt(e.target.value, 10);
+    draftForm.q = q > 0 ? q : 0;
+    const out = document.getElementById("f-total");
+    if (out) out.textContent = fmt(draftForm.q * draftForm.u);
+  }
+  if (e.target.id === "f-num" && draftForm) draftForm.num = e.target.value;
+  if (e.target.id === "f-desc" && draftForm) draftForm.d = e.target.value;
+});
+
+function render() {
+  sNav(); bNav(); stepState();
+  const sp = view.s.page;
+  const sInv = sp === "detail" ? find(view.s.id) : null;
+  document.getElementById("sbody").innerHTML = sp === "home" ? sHome() : sp === "invoices" ? sInvoices() : sp === "new" ? sNew() : sp === "bank" ? sBank() : sInv ? sDetail(sInv) : sHome();
+  const bp = view.b.page;
+  const bInv = bp === "detail" ? find(view.b.id) : null;
+  document.getElementById("bbody").innerHTML = bp === "invoices" ? bInvoices() : bp === "suppliers" ? bSuppliers() : bp === "bank" ? bBank() : bInv ? bDetail(bInv) : bInvoices();
+}
+render();
+})();
+</script>
